@@ -1,5 +1,7 @@
 #include "ump_types.h"
 #include "ump_defs.h"
+#include "ump_message.h"
+#include "esp_err.h"
 
 esp_err_t ump_build_midi2_note_on(
     uint8_t group, uint8_t channel, uint8_t note,

@@ -1,5 +1,6 @@
 #include "midi_types.h"
 #include "ump_types.h"
+#include "ump_message.h"
 #include "midi_translator.h"
 
 // MIDI 1.0 (7-bit) to 16-bit (MIDI 2.0) min-center-max upscaling

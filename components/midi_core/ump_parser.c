@@ -1,5 +1,6 @@
 #include "ump_types.h"
 #include "ump_defs.h"
+#include "ump_parser.h"
 #include <string.h>
 #include <stdint.h>
 #include "esp_err.h"
