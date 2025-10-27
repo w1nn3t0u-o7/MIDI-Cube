@@ -12,10 +12,6 @@
 #include "midi_types.h"
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief MIDI Parser State Machine
  * 
@@ -155,10 +151,6 @@ static inline bool midi_is_channel_message(uint8_t status) {
     return (status >= MIDI_STATUS_NOTE_OFF && 
             status < MIDI_STATUS_SYSEX_START);
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* MIDI_PARSER_H */
 

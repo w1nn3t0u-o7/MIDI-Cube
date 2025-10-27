@@ -9,10 +9,6 @@
 #include "midi_types.h"
 #include "esp_err.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /**
  * @brief Create a Note On message
  * 
@@ -143,9 +139,5 @@ bool midi_is_note_off(const midi_message_t *msg);
  * @return String describing message type
  */
 const char* midi_get_message_type_string(const midi_message_t *msg);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* MIDI_MESSAGE_H */
