@@ -507,32 +507,32 @@ Required for true MIDI 2.0 device implementation:
 
 ### Phase 1: Complete Basic MIDI 2.0 Channel Voice (2 weeks)
 
-✅ Note On/Off (done)
-⬜ Poly Pressure
-⬜ Control Change (32-bit)
-⬜ Program Change (with Bank Select)
-⬜ Channel Pressure
-⬜ Pitch Bend (32-bit)
-⬜ System Real-Time (Clock, Start, Stop)
+- ✅ Note On/Off (done)
+- ⬜ Poly Pressure
+- ⬜ Control Change (32-bit)
+- ⬜ Program Change (with Bank Select)
+- ⬜ Channel Pressure
+- ⬜ Pitch Bend (32-bit)
+- ⬜ System Real-Time (Clock, Start, Stop)
 
 ### Phase 2: SysEx Support (1 week)
 
-⬜ SysEx 7-bit (MT 0x3)
-⬜ SysEx 8-bit (MT 0x5)
-⬜ Fragmentation handling
+- ⬜ SysEx 7-bit (MT 0x3)
+- ⬜ SysEx 8-bit (MT 0x5)
+- ⬜ Fragmentation handling
 
 ### Phase 3: Advanced Controllers (2 weeks)
 
-⬜ Registered Controllers (RPN)
-⬜ Assignable Controllers (NRPN)
-⬜ Per-Note Controllers
-⬜ Relative Controllers
+- ⬜ Registered Controllers (RPN)
+- ⬜ Assignable Controllers (NRPN)
+- ⬜ Per-Note Controllers
+- ⬜ Relative Controllers
 
 ### Phase 4: UMP Stream (When needed)
 
-⬜ Endpoint Discovery
-⬜ Function Block Discovery
-⬜ Jitter Reduction Timestamps
+- ⬜ Endpoint Discovery
+- ⬜ Function Block Discovery
+- ⬜ Jitter Reduction Timestamps
 
 
 ### Recommended Code Structure

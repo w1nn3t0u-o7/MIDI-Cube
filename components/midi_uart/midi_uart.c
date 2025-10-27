@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "midi_din.h"
+#include "midi_uart.h"
 
 void func(void)
 {
