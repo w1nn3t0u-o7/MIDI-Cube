@@ -172,7 +172,7 @@ void test_ump_parser_midi2_note(void) {
     // Construct MIDI 2.0 Note On UMP packet
     // MT=0x4, Group=0, Status=0x90, Channel=0, Note=60
     uint32_t words[2] = {
-        0x40906000,  // Word 0
+        0x49003C00,  // Word 0
         0x80000000   // Word 1: Velocity=32768 (center)
     };
     
