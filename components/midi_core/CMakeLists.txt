@@ -1,4 +1,4 @@
 idf_component_register(
-    SRCS "midi_core.c"
+    SRCS "midi_parser.c"
     INCLUDE_DIRS "include"
 )
