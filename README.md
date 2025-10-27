@@ -25,7 +25,7 @@ The original UMP MIDI 2.0 Note On parsing had incorrect bit field extraction. Th
 ### Root Cause
 
 MIDI 2.0 Channel Voice Messages (MT 0x4, 64-bit) have this structure:
-
+```
 Word 0 (32 bits):
 ┌────────┬────────┬────────────────────────┬────────┬────────┐
 │ MT │ Group │ Status + Channel │ Note │Index/0 │
@@ -33,15 +33,15 @@ Word 0 (32 bits):
 │ 31-28 │ 27-24 │ 23-16 │ 15-8 │ 7-0 │
 └────────┴────────┴────────────────────────┴────────┴────────┘
 0x4 0x0 0x90 (Status+Ch=0) 0x3C 0x00
-
+```
+```
 Word 1 (32 bits):
 ┌─────────────────┬────────────┬─────────────────┐
 │ Velocity │ Attr Type │ Attribute Data │
 │ 16 bits │ 8 bits │ 16 bits │
 │ 31-16 │ 15-8 │ 7-0 │
 └─────────────────┴────────────┴─────────────────┘
-
-text
+```
 
 **Key insight**: Status (0x9) and Channel (0x0) are **combined** into a single byte at bits 23-16.
 
