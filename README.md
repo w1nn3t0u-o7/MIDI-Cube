@@ -48,7 +48,7 @@ Word 1 (32 bits):
 ### Corrected Macros
 
 Add to `ump_defs.h`:
-
+```c
 /**
 
     @defgroup UMP_M2CV_EXTRACT MIDI 2.0 Channel Voice Field Extraction
@@ -84,13 +84,12 @@ Add to `ump_defs.h`:
 ((uint32_t)(attr_data) << 0))
 
 /** @} */
-
-text
+```
 
 ### Fixed UMP Builder Function
 
 Update `ump_message.c`:
-
+```c
 esp_err_t ump_build_midi2_note_on(
 uint8_t group, uint8_t channel, uint8_t note,
 uint16_t velocity16, uint8_t attr_type, uint16_t attr_data,
@@ -128,13 +127,12 @@ packet_out->timestamp_us = 0;
 return ESP_OK;
 
 }
-
-text
+```
 
 ### Fixed Test Code
 
 Update `main.c` test:
-
+```c
 void test_ump_parser_midi2_note(void) {
 ESP_LOGI(TAG, "=== Test 4: UMP Parser - MIDI 2.0 Note On ===");
 
@@ -177,8 +175,7 @@ TEST_ASSERT_EQUAL_UINT8(0, channel);
 ESP_LOGI(TAG, "✓✓ Round-trip test passed!");
 
 }
-
-text
+```
 
 ---
 
@@ -213,7 +210,7 @@ text
 #### 1. Validation Functions
 
 Add to `ump_parser.c`:
-
+```c
 /**
 
     @brief Validate UMP packet structure
@@ -246,13 +243,12 @@ Add to `ump_parser.c`:
     };
     return (mt < 16) ? mt_strings[mt] : "Invalid";
     }
-
-text
+```
 
 #### 2. Helper Types
 
 Add to `ump_types.h`:
-
+```c
 /**
 
     @brief MIDI 2.0 velocity with conversion helpers
@@ -270,8 +266,7 @@ return (midi2_velocity_t){ .value = midi_upscale_7to16(vel7) };
 static inline uint8_t midi2_velocity_to_7bit(midi2_velocity_t vel) {
 return midi_downscale_16to7(vel.value);
 }
-
-text
+```
 
 ---
 
@@ -300,7 +295,7 @@ text
 #### Implementation Examples
 
 **Control Change (32-bit resolution)**:
-
+```c
 esp_err_t ump_build_midi2_control_change(
 uint8_t group, uint8_t channel, uint8_t controller,
 uint32_t value32, // Full 32-bit resolution!
@@ -329,11 +324,10 @@ packet_out->group = group;
 return ESP_OK;
 
 }
-
-text
+```
 
 **Pitch Bend (32-bit)**:
-
+```c
 esp_err_t ump_build_midi2_pitch_bend(
 uint8_t group, uint8_t channel,
 uint32_t value32, // Center = 0x80000000
@@ -361,11 +355,10 @@ packet_out->group = group;
 return ESP_OK;
 
 }
-
-text
+```
 
 **Program Change with Bank Select**:
-
+```c
 esp_err_t ump_build_midi2_program_change(
 uint8_t group, uint8_t channel, uint8_t program,
 bool bank_valid, uint8_t bank_msb, uint8_t bank_lsb,
@@ -374,8 +367,8 @@ ump_packet_t *packet_out)
 if (!packet_out || group > 15 || channel > 15 || program > 127) {
 return ESP_ERR_INVALID_ARG;
 }
-
-text
+```
+```c
 uint8_t status = 0xC0 | (channel & 0x0F);
 uint8_t options = bank_valid ? 0x01 : 0x00;
 
@@ -397,13 +390,12 @@ packet_out->group = group;
 return ESP_OK;
 
 }
-
-text
+```
 
 #### System Real-Time Messages (MT 0x1)
 
 Critical for synchronization:
-
+```c
 esp_err_t ump_build_system_realtime(
 uint8_t group, uint8_t status, // 0xF8-0xFF
 ump_packet_t *packet_out)
@@ -411,8 +403,8 @@ ump_packet_t *packet_out)
 if (!packet_out || status < 0xF8) {
 return ESP_ERR_INVALID_ARG;
 }
-
-text
+```
+```c
 packet_out->words = 
     ((uint32_t)UMP_MT_SYSTEM << 28) |
     ((uint32_t)group << 24) |
@@ -426,15 +418,14 @@ packet_out->group = group;
 return ESP_OK;
 
 }
-
-text
+```
 
 ### Tier 2: Advanced Features (MEDIUM PRIORITY) 🟡
 
 #### Per-Note Controllers
 
 Revolutionary MIDI 2.0 feature - independent control per note:
-
+```c
 /**
 
     @brief MIDI 2.0 Per-Note Pitch Bend
@@ -457,13 +448,12 @@ Revolutionary MIDI 2.0 feature - independent control per note:
     uint8_t controller; // 0-255
     uint32_t value; // 32-bit value
     } midi2_per_note_controller_t;
-
-text
+```
 
 #### Registered/Assignable Controllers
 
 Unified RPN/NRPN in single message:
-
+```c
 esp_err_t ump_build_midi2_registered_controller(
 uint8_t group, uint8_t channel,
 uint8_t bank, uint8_t index,
@@ -471,8 +461,8 @@ uint32_t value32,
 ump_packet_t *packet_out)
 {
 uint8_t status = 0x20 | (channel & 0x0F); // RPN status
-
-text
+```
+```c
 packet_out->words = 
     ((uint32_t)UMP_MT_MIDI2_CHANNEL_VOICE << 28) |
     ((uint32_t)group << 24) |
@@ -489,13 +479,12 @@ packet_out->group = group;
 return ESP_OK;
 
 }
-
-text
+```
 
 ### Tier 3: UMP Stream (LOW PRIORITY) 🟢
 
 Required for true MIDI 2.0 device implementation:
-
+```c
 /**
 
     @brief Endpoint Info Notification
@@ -510,8 +499,7 @@ Required for true MIDI 2.0 device implementation:
     bool rx_jr_timestamp;
     bool tx_jr_timestamp;
     } ump_endpoint_info_t;
-
-text
+```
 
 ---
 
@@ -527,15 +515,11 @@ text
 ⬜ Pitch Bend (32-bit)
 ⬜ System Real-Time (Clock, Start, Stop)
 
-text
-
 ### Phase 2: SysEx Support (1 week)
 
 ⬜ SysEx 7-bit (MT 0x3)
 ⬜ SysEx 8-bit (MT 0x5)
 ⬜ Fragmentation handling
-
-text
 
 ### Phase 3: Advanced Controllers (2 weeks)
 
@@ -544,18 +528,15 @@ text
 ⬜ Per-Note Controllers
 ⬜ Relative Controllers
 
-text
-
 ### Phase 4: UMP Stream (When needed)
 
 ⬜ Endpoint Discovery
 ⬜ Function Block Discovery
 ⬜ Jitter Reduction Timestamps
 
-text
 
 ### Recommended Code Structure
-
+```
 components/midi_core/
 ├── src/
 │ ├── midi_parser.c // MIDI 1.0 byte stream
@@ -566,8 +547,7 @@ components/midi_core/
 │ ├── ump_stream.c // MT 0xF (later)
 │ ├── ump_utility.c // MT 0x0 (later)
 │ └── midi_translator.c // Translation logic
-
-text
+```
 
 ---
 
