@@ -9,8 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "nvs_flash.h"
-#include "nvs.h"
+//#include "nvs_flash.h"
+//#include "nvs.h"
 #include <string.h>
 
 static const char *TAG = "midi_router";

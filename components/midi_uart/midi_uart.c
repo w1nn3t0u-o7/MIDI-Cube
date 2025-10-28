@@ -18,6 +18,7 @@ static const char *TAG = "midi_uart";
 // Hardware configuration (from midi_uart_hw.c)
 extern esp_err_t midi_uart_hw_configure(void);
 extern esp_err_t midi_uart_hw_deconfigure(void);
+extern QueueHandle_t midi_uart_get_event_queue(void);
 
 /**
  * @brief MIDI UART driver state
@@ -46,7 +47,7 @@ typedef struct {
 static midi_uart_state_t g_uart_state = {0};
 
 /**
- * @brief UART RX Task
+ * @brief UART RX Task (ESP-IDF v5.5 compatible)
  * 
  * Continuously reads from UART, feeds to MIDI parser,
  * calls callback on complete messages
@@ -56,68 +57,83 @@ static void midi_uart_rx_task(void *arg) {
     uint8_t rx_byte;
     midi_message_t msg;
     bool complete;
+    uart_event_t event;
+    QueueHandle_t uart_queue = midi_uart_get_event_queue();
     
     ESP_LOGI(TAG, "MIDI UART RX task started on core %d", xPortGetCoreID());
     
+    if (uart_queue == NULL) {
+        ESP_LOGE(TAG, "UART event queue is NULL! Cannot start RX task.");
+        vTaskDelete(NULL);
+        return;
+    }
+    
     while (1) {
-        // Read single byte from UART (blocking with timeout)
-        int len = uart_read_bytes(MIDI_UART_PORT, &rx_byte, 1, 
-                                   pdMS_TO_TICKS(100));
-        
-        if (len == 1) {
-            state->stats.bytes_received++;
+        // Wait for UART event (with timeout)
+        if (xQueueReceive(uart_queue, &event, pdMS_TO_TICKS(100)) == pdTRUE) {
             
-            // Feed byte to MIDI parser
-            esp_err_t err = midi_parser_parse_byte(
-                &state->parser,
-                rx_byte,
-                &msg,
-                &complete
-            );
-            
-            if (err != ESP_OK) {
-                state->stats.parser_errors++;
-                ESP_LOGW(TAG, "Parser error for byte 0x%02X", rx_byte);
-                continue;
-            }
-            
-            // If message complete, call callback
-            if (complete) {
-                state->stats.messages_received++;
-                
-                // Add timestamp
-                msg.timestamp_us = esp_timer_get_time();
-                
-                // Call user callback
-                if (state->rx_callback) {
-                    state->rx_callback(&msg, state->rx_callback_ctx);
-                }
-                
-                // Debug logging (verbose)
-                ESP_LOGD(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
-                         msg.status, msg.channel, msg.data1, msg.data2);
-            }
-        } else if (len < 0) {
-            // UART error
-            state->stats.rx_errors++;
-            ESP_LOGW(TAG, "UART read error: %d", len);
-        }
-        
-        // Check for UART events (errors, buffer full, etc.)
-        uart_event_t event;
-        if (xQueueReceive(uart_get_event_queue(MIDI_UART_PORT), 
-                         &event, 0) == pdTRUE) {
             switch (event.type) {
+                case UART_DATA:
+                    // Data available - read it
+                    {
+                        uint8_t data[128];
+                        int len = uart_read_bytes(MIDI_UART_PORT, data, 
+                                                  event.size, 
+                                                  pdMS_TO_TICKS(10));
+                        
+                        if (len > 0) {
+                            // Process each byte
+                            for (int i = 0; i < len; i++) {
+                                rx_byte = data[i];
+                                state->stats.bytes_received++;
+                                
+                                // Feed byte to MIDI parser
+                                esp_err_t err = midi_parser_parse_byte(
+                                    &state->parser,
+                                    rx_byte,
+                                    &msg,
+                                    &complete
+                                );
+                                
+                                if (err != ESP_OK) {
+                                    state->stats.parser_errors++;
+                                    ESP_LOGW(TAG, "Parser error for byte 0x%02X", rx_byte);
+                                    continue;
+                                }
+                                
+                                // If message complete, call callback
+                                if (complete) {
+                                    state->stats.messages_received++;
+                                    
+                                    // Add timestamp
+                                    msg.timestamp_us = esp_timer_get_time();
+                                    
+                                    // Call user callback
+                                    if (state->rx_callback) {
+                                        state->rx_callback(&msg, state->rx_callback_ctx);
+                                    }
+                                    
+                                    // Debug logging (verbose)
+                                    ESP_LOGD(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
+                                             msg.status, msg.channel, msg.data1, msg.data2);
+                                }
+                            }
+                        }
+                    }
+                    break;
+                    
                 case UART_BUFFER_FULL:
                     state->stats.rx_overruns++;
-                    ESP_LOGW(TAG, "UART RX buffer full - data loss!");
+                    ESP_LOGW(TAG, "UART RX buffer full - flushing!");
                     uart_flush_input(MIDI_UART_PORT);
+                    xQueueReset(uart_queue);
                     break;
                     
                 case UART_FIFO_OVF:
                     state->stats.rx_overruns++;
                     ESP_LOGW(TAG, "UART FIFO overflow!");
                     uart_flush_input(MIDI_UART_PORT);
+                    xQueueReset(uart_queue);
                     break;
                     
                 case UART_FRAME_ERR:
@@ -127,13 +143,23 @@ static void midi_uart_rx_task(void *arg) {
                     
                 case UART_PARITY_ERR:
                     state->stats.rx_errors++;
-                    ESP_LOGW(TAG, "UART parity error (shouldn't happen)");
+                    ESP_LOGW(TAG, "UART parity error");
+                    break;
+                    
+                case UART_BREAK:
+                    ESP_LOGD(TAG, "UART break detected");
+                    break;
+                    
+                case UART_PATTERN_DET:
+                    // Not used for MIDI, but handle gracefully
                     break;
                     
                 default:
+                    ESP_LOGW(TAG, "Unknown UART event type: %d", event.type);
                     break;
             }
         }
+        // Timeout - continue loop (allows clean task deletion if needed)
     }
 }
 

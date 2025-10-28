@@ -1,6 +1,6 @@
 /**
  * @file midi_uart_hw.c
- * @brief MIDI UART Hardware Configuration
+ * @brief MIDI UART Hardware Configuration (ESP-IDF v5.5 compatible)
  */
 
 #include "midi_uart_config.h"
@@ -8,8 +8,20 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 
 static const char *TAG = "midi_uart_hw";
+
+// Global event queue handle (needed for v5.5 API)
+static QueueHandle_t g_uart_event_queue = NULL;
+
+/**
+ * @brief Get UART event queue handle
+ */
+QueueHandle_t midi_uart_get_event_queue(void) {
+    return g_uart_event_queue;
+}
 
 /**
  * @brief Configure UART hardware for MIDI
@@ -48,10 +60,10 @@ esp_err_t midi_uart_hw_configure(void) {
     // Set UART pins
     err = uart_set_pin(
         MIDI_UART_PORT,
-        MIDI_UART_TX_PIN,  // TX
-        MIDI_UART_RX_PIN,  // RX
-        UART_PIN_NO_CHANGE, // RTS (not used)
-        UART_PIN_NO_CHANGE  // CTS (not used)
+        MIDI_UART_TX_PIN,       // TX
+        MIDI_UART_RX_PIN,       // RX
+        UART_PIN_NO_CHANGE,     // RTS (not used)
+        UART_PIN_NO_CHANGE      // CTS (not used)
     );
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "UART set pin failed: %s", esp_err_to_name(err));
@@ -59,13 +71,14 @@ esp_err_t midi_uart_hw_configure(void) {
     }
     
     // Install UART driver with RX/TX buffers
+    // ESP-IDF v5.5: Pass pointer to queue handle as out parameter
     err = uart_driver_install(
         MIDI_UART_PORT,
         MIDI_UART_RX_BUF_SIZE,
         MIDI_UART_TX_BUF_SIZE,
         MIDI_UART_EVENT_QUEUE_SIZE,
-        NULL,  // Event queue handle (handled in main driver)
-        0      // Interrupt allocation flags
+        &g_uart_event_queue,    // ← OUT parameter (v5.5 API change)
+        0                        // Interrupt allocation flags
     );
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "UART driver install failed: %s", esp_err_to_name(err));
@@ -73,6 +86,8 @@ esp_err_t midi_uart_hw_configure(void) {
     }
     
     ESP_LOGI(TAG, "MIDI UART hardware configured successfully");
+    ESP_LOGI(TAG, "  Event queue created: %p", (void*)g_uart_event_queue);
+    
     return ESP_OK;
 }
 
@@ -80,5 +95,8 @@ esp_err_t midi_uart_hw_configure(void) {
  * @brief Deconfigure UART hardware
  */
 esp_err_t midi_uart_hw_deconfigure(void) {
-    return uart_driver_delete(MIDI_UART_PORT);
+    esp_err_t err = uart_driver_delete(MIDI_UART_PORT);
+    g_uart_event_queue = NULL;  // Clear handle
+    return err;
 }
+
