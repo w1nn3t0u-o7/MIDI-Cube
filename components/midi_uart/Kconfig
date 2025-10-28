@@ -1,0 +1,70 @@
+menu "MIDI UART Configuration"
+
+    config MIDI_UART_PORT_NUM
+        int "UART Port Number"
+        default 1
+        range 0 2
+        help
+            ESP32-S3 UART port number for MIDI (0, 1, or 2).
+            Note: UART0 is typically used for console/debug.
+            Recommended: UART1 or UART2 for MIDI.
+
+    config MIDI_UART_TX_PIN
+        int "MIDI TX Pin (GPIO)"
+        default 17
+        range 0 48
+        help
+            GPIO pin for MIDI OUT (TX). Default: GPIO17
+
+    config MIDI_UART_RX_PIN
+        int "MIDI RX Pin (GPIO)"
+        default 16
+        range 0 48
+        help
+            GPIO pin for MIDI IN (RX). Default: GPIO16
+
+    config MIDI_UART_RX_BUFFER_SIZE
+        int "RX Ring Buffer Size (bytes)"
+        default 1024
+        range 256 4096
+        help
+            UART RX buffer size. MIDI byte stream buffer.
+            Larger = more burst tolerance, more RAM usage.
+
+    config MIDI_UART_TX_BUFFER_SIZE
+        int "TX Ring Buffer Size (bytes)"
+        default 1024
+        range 256 4096
+        help
+            UART TX buffer size for outgoing MIDI data.
+
+    config MIDI_UART_EVENT_QUEUE_SIZE
+        int "UART Event Queue Size"
+        default 20
+        range 10 50
+        help
+            Number of UART events that can be queued.
+
+    config MIDI_UART_TASK_STACK_SIZE
+        int "MIDI UART Task Stack Size (bytes)"
+        default 4096
+        range 2048 8192
+        help
+            Stack size for MIDI UART processing task.
+
+    config MIDI_UART_TASK_PRIORITY
+        int "MIDI UART Task Priority"
+        default 10
+        range 5 20
+        help
+            FreeRTOS task priority. Higher = more CPU time.
+            10 = High priority (audio/MIDI level)
+
+    config MIDI_UART_USE_OPTOCOUPLER
+        bool "Hardware uses optocoupler on RX"
+        default y
+        help
+            Enable if your MIDI IN circuit uses 6N138/6N137 optocoupler.
+            Affects timing characteristics slightly.
+
+endmenu
