@@ -1,0 +1,82 @@
+menu "MIDI WiFi Configuration"
+
+    choice MIDI_WIFI_MODE
+        prompt "WiFi MIDI Mode"
+        default MIDI_WIFI_MODE_HOST
+        help
+            Select operating mode for WiFi MIDI.
+        
+        config MIDI_WIFI_MODE_HOST
+            bool "Host (discoverable)"
+            help
+                Act as MIDI 2.0 UDP Host. Discoverable via mDNS.
+        
+        config MIDI_WIFI_MODE_CLIENT
+            bool "Client (connect to host)"
+            help
+                Act as MIDI 2.0 UDP Client. Connects to discovered hosts.
+        
+        config MIDI_WIFI_MODE_BOTH
+            bool "Both (host and client)"
+            help
+                Can act as both host and client simultaneously.
+    endchoice
+
+    config MIDI_WIFI_HOST_UDP_PORT
+        int "Host UDP Port"
+        default 5004
+        range 1024 65535
+        help
+            UDP port for MIDI 2.0 host mode (default 5004).
+
+    config MIDI_WIFI_SSID
+        string "WiFi SSID"
+        default "MyWiFi"
+        help
+            WiFi network name to connect to.
+
+    config MIDI_WIFI_PASSWORD
+        string "WiFi Password"
+        default ""
+        help
+            WiFi network password.
+
+    config MIDI_WIFI_ENABLE_MDNS
+        bool "Enable mDNS Discovery"
+        default y
+        help
+            Enable automatic discovery via mDNS (DNS-SD).
+
+    config MIDI_WIFI_UMP_ENDPOINT_NAME
+        string "UMP Endpoint Name"
+        default "MIDI Cube"
+        help
+            Name displayed to other MIDI devices.
+
+    config MIDI_WIFI_MAX_CLIENTS
+        int "Maximum Simultaneous Clients (Host Mode)"
+        default 4
+        range 1 16
+        help
+            Maximum number of clients that can connect simultaneously.
+
+    config MIDI_WIFI_ENABLE_FEC
+        bool "Enable Forward Error Correction (FEC)"
+        default y
+        help
+            Include 2 previous packets with each transmission for error recovery.
+
+    config MIDI_WIFI_ENABLE_RETRANSMIT
+        bool "Enable Retransmit Support"
+        default y
+        help
+            Support retransmission of lost packets on request.
+
+    config MIDI_WIFI_RETRANSMIT_BUFFER_SIZE
+        int "Retransmit Buffer Size (packets)"
+        default 32
+        depends on MIDI_WIFI_ENABLE_RETRANSMIT
+        help
+            Number of packets to keep for retransmission.
+
+endmenu
