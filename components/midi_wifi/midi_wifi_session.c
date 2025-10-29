@@ -6,6 +6,7 @@
  */
 
 #include "midi_wifi_session.h"
+#include "midi_wifi.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <string.h>

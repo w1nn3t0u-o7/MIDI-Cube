@@ -8,82 +8,10 @@
 #include "midi_wifi.h"
 #include "midi_wifi_session.h"
 #include "esp_log.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "nvs_flash.h"
-#include "mdns.h"
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "freertos/semphr.h"
+#include "esp_timer.h"
 #include <string.h>
 
 static const char *TAG = "midi_wifi";
-
-// WiFi event bits
-#define WIFI_CONNECTED_BIT    BIT0
-#define WIFI_FAIL_BIT         BIT1
-
-// Network MIDI 2.0 constants[file:4]
-#define MIDI_WIFI_DEFAULT_PORT        5004
-#define MIDI_WIFI_MTU                 1472  // Max UDP payload to fit in single packet
-#define MIDI_WIFI_SERVICE_NAME        "_midi2._udp"
-#define MIDI_WIFI_KEEPALIVE_INTERVAL  1000  // 1 second
-#define MIDI_WIFI_SESSION_TIMEOUT     5000  // 5 seconds
-
-/**
- * @brief WiFi MIDI driver state
- */
-typedef struct {
-    bool initialized;
-    bool wifi_connected;
-    midi_wifi_config_t config;
-    midi_wifi_stats_t stats;
-    
-    // WiFi
-    esp_netif_t *netif;
-    EventGroupHandle_t wifi_event_group;
-    int wifi_retry_num;
-    
-    // UDP socket
-    int sock_fd;
-    struct sockaddr_in local_addr;
-    
-    // Tasks
-    TaskHandle_t rx_task_handle;
-    TaskHandle_t keepalive_task_handle;
-    
-    // Session management
-    midi_wifi_peer_t peers[CONFIG_MIDI_WIFI_MAX_CLIENTS];
-    uint8_t num_active_peers;
-    SemaphoreHandle_t peers_mutex;
-    
-    // Discovery (managed by midi_wifi_discovery.c)
-    midi_wifi_discovered_device_t discovered[16];
-    uint8_t num_discovered;
-    SemaphoreHandle_t discovery_mutex;
-    
-    // FEC buffer (for Forward Error Correction)
-    ump_packet_t *fec_buffer;
-    uint16_t fec_buffer_size;
-    uint16_t fec_buffer_idx;
-    
-    // Retransmit buffer
-    struct {
-        ump_packet_t packet;
-        uint32_t sequence_num;
-        uint32_t timestamp_ms;
-    } *retransmit_buffer;
-    uint16_t retransmit_buffer_size;
-    uint16_t retransmit_buffer_idx;
-    uint32_t tx_sequence_num;
-    
-} midi_wifi_state_t;
 
 static midi_wifi_state_t g_wifi_state = {0};
 
@@ -268,7 +196,7 @@ static esp_err_t mdns_init_service(void) {
     }
     
     // Add service TXT records[file:4]
-    mdns_service_txt_item_t txt_data[] = {
+    mdns_txt_item_t txt_data[] = {
         {"name", g_wifi_state.config.endpoint_name},
         {"fec", g_wifi_state.config.enable_fec ? "1" : "0"},
         {"retx", g_wifi_state.config.enable_retransmit ? "1" : "0"}

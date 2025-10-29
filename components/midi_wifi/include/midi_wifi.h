@@ -29,7 +29,30 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "ump_types.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
 #include "esp_netif.h"
+#include "nvs_flash.h"
+#include "mdns.h"
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include "lwip/netdb.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "freertos/semphr.h"
+
+// WiFi event bits
+#define WIFI_CONNECTED_BIT    BIT0
+#define WIFI_FAIL_BIT         BIT1
+
+// Network MIDI 2.0 constants[file:4]
+#define MIDI_WIFI_DEFAULT_PORT        5004
+#define MIDI_WIFI_MTU                 1472  // Max UDP payload to fit in single packet
+#define MIDI_WIFI_SERVICE_NAME        "_midi2._udp"
+#define MIDI_WIFI_KEEPALIVE_INTERVAL  1000  // 1 second
+#define MIDI_WIFI_SESSION_TIMEOUT     5000  // 5 seconds
 
 /**
  * @brief WiFi MIDI operating mode
@@ -113,7 +136,7 @@ typedef void (*midi_wifi_conn_callback_t)(const midi_wifi_peer_t *peer,
  */
 typedef void (*midi_wifi_discovery_callback_t)(const midi_wifi_discovered_device_t *device,
                                                 void *user_ctx);
-
+                                                
 /**
  * @brief WiFi MIDI configuration
  */
@@ -147,6 +170,55 @@ typedef struct {
     uint32_t active_sessions;
     uint32_t discovery_count;
 } midi_wifi_stats_t;
+
+/**
+ * @brief WiFi MIDI driver state
+ */
+typedef struct {
+    bool initialized;
+    bool wifi_connected;
+    midi_wifi_config_t config;
+    midi_wifi_stats_t stats;
+    
+    // WiFi
+    esp_netif_t *netif;
+    EventGroupHandle_t wifi_event_group;
+    int wifi_retry_num;
+    
+    // UDP socket
+    int sock_fd;
+    struct sockaddr_in local_addr;
+    
+    // Tasks
+    TaskHandle_t rx_task_handle;
+    TaskHandle_t keepalive_task_handle;
+    
+    // Session management
+    midi_wifi_peer_t peers[CONFIG_MIDI_WIFI_MAX_CLIENTS];
+    uint8_t num_active_peers;
+    SemaphoreHandle_t peers_mutex;
+    
+    // Discovery (managed by midi_wifi_discovery.c)
+    midi_wifi_discovered_device_t discovered[16];
+    uint8_t num_discovered;
+    SemaphoreHandle_t discovery_mutex;
+    
+    // FEC buffer (for Forward Error Correction)
+    ump_packet_t *fec_buffer;
+    uint16_t fec_buffer_size;
+    uint16_t fec_buffer_idx;
+    
+    // Retransmit buffer
+    struct {
+        ump_packet_t packet;
+        uint32_t sequence_num;
+        uint32_t timestamp_ms;
+    } *retransmit_buffer;
+    uint16_t retransmit_buffer_size;
+    uint16_t retransmit_buffer_idx;
+    uint32_t tx_sequence_num;
+    
+} midi_wifi_state_t;
 
 /**
  * @brief Initialize WiFi MIDI driver
