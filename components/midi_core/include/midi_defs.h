@@ -9,9 +9,6 @@
 #ifndef MIDI_DEFS_H
 #define MIDI_DEFS_H
 
-//#include <stdint.h>
-//#include <stdbool.h>
-
 /**
  * @defgroup MIDI_STATUS_BYTES MIDI Status Bytes
  * @brief Status byte definitions for MIDI 1.0 messages
@@ -32,18 +29,14 @@
 #define MIDI_STATUS_MTC_QUARTER_FRAME   0xF1  /**< MIDI Time Code Quarter Frame */
 #define MIDI_STATUS_SONG_POSITION       0xF2  /**< Song Position Pointer */
 #define MIDI_STATUS_SONG_SELECT         0xF3  /**< Song Select */
-#define MIDI_STATUS_UNDEFINED_F4        0xF4  /**< Undefined System Common */
-#define MIDI_STATUS_UNDEFINED_F5        0xF5  /**< Undefined System Common */
 #define MIDI_STATUS_TUNE_REQUEST        0xF6  /**< Tune Request */
 #define MIDI_STATUS_SYSEX_END           0xF7  /**< End of System Exclusive (EOX) */
 
 /* System Real-Time Messages (F8 - FF) */
 #define MIDI_STATUS_TIMING_CLOCK        0xF8  /**< Timing Clock (24 per quarter note) */
-#define MIDI_STATUS_UNDEFINED_F9        0xF9  /**< Undefined Real-Time */
 #define MIDI_STATUS_START               0xFA  /**< Start */
 #define MIDI_STATUS_CONTINUE            0xFB  /**< Continue */
 #define MIDI_STATUS_STOP                0xFC  /**< Stop */
-#define MIDI_STATUS_UNDEFINED_FD        0xFD  /**< Undefined Real-Time */
 #define MIDI_STATUS_ACTIVE_SENSING      0xFE  /**< Active Sensing */
 #define MIDI_STATUS_SYSTEM_RESET        0xFF  /**< System Reset */
 
@@ -84,6 +77,12 @@
 #define MIDI_CC_BALANCE_LSB             0x28  /**< Balance LSB */
 #define MIDI_CC_PAN_LSB                 0x2A  /**< Pan LSB */
 #define MIDI_CC_EXPRESSION_LSB          0x2B  /**< Expression Controller LSB */
+#define MIDI_CC_EFFECT_CONTROL_1_LSB    0x2C  /**< Effect Control 1 LSB */
+#define MIDI_CC_EFFECT_CONTROL_2_LSB    0x2D  /**< Effect Control 2 LSB */
+#define MIDI_CC_GENERAL_PURPOSE_1_LSB   0x30  /**< General Purpose Controller 1 LSB */
+#define MIDI_CC_GENERAL_PURPOSE_2_LSB   0x31  /**< General Purpose Controller 2 LSB */
+#define MIDI_CC_GENERAL_PURPOSE_3_LSB   0x32  /**< General Purpose Controller 3 LSB */
+#define MIDI_CC_GENERAL_PURPOSE_4_LSB   0x33  /**< General Purpose Controller 4 LSB */
 
 /* Single Byte Controllers (64-119) */
 #define MIDI_CC_SUSTAIN_PEDAL           0x40  /**< Sustain Pedal (Damper) */
@@ -162,8 +161,6 @@
 #define MIDI_RPN_TUNING_PROGRAM_SELECT_LSB   0x03  /**< Tuning Program Select LSB */
 #define MIDI_RPN_TUNING_BANK_SELECT_MSB      0x00  /**< Tuning Bank Select MSB */
 #define MIDI_RPN_TUNING_BANK_SELECT_LSB      0x04  /**< Tuning Bank Select LSB */
-#define MIDI_RPN_NULL_MSB                    0x7F  /**< RPN Null MSB */
-#define MIDI_RPN_NULL_LSB                    0x7F  /**< RPN Null LSB */
 
 /** @} */
 
@@ -193,10 +190,6 @@
 
 /* Active Sensing Timing */
 #define MIDI_ACTIVE_SENSING_TIMEOUT_MS  300   /**< Active sensing timeout (ms) */
-
-/* Timing */
-#define MIDI_CLOCKS_PER_QUARTER_NOTE    24    /**< MIDI clock pulses per quarter note */
-#define MIDI_BYTE_TRANSMISSION_TIME_US  320   /**< Time to transmit one MIDI byte (μs) */
 
 /** @} */
 
