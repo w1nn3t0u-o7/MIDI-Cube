@@ -12,9 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "tinyusb.h"
-//#include "tusb.h"
-#include "class/midi/midi_device.h"
+#include "tusb.h"
 #include <string.h>
 
 static const char *TAG = "usb_device";

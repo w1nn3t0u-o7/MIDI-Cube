@@ -10,6 +10,7 @@
 #define MIDI_PARSER_H
 
 #include "midi_types.h"
+#include "midi_defs.h"
 #include "esp_err.h"
 
 /**

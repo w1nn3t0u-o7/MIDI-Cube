@@ -1,4 +1,5 @@
 #include "midi_types.h"
+#include "midi_defs.h"
 #include "ump_types.h"
 #include "ump_message.h"
 #include "midi_translator.h"

@@ -10,7 +10,6 @@
  */
 
 #include "midi_parser.h"
-#include "midi_defs.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <string.h>
@@ -124,10 +123,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
         msg->status = byte;
         msg->channel = 0;
-        msg->data1 = 0;
-        msg->data2 = 0;
-        msg->length = 1;
-        msg->timestamp_us = state->last_message_time_us;
         
         /* Active Sensing Detection (0xFE) */
         if (byte == MIDI_STATUS_ACTIVE_SENSING) {
@@ -162,10 +157,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                 msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
                 msg->status = MIDI_STATUS_SYSEX_START;
                 msg->channel = 0;
-                msg->length = 1;
-                msg->sysex_data = state->sysex_buffer;
-                msg->sysex_length = state->sysex_index;
-                msg->timestamp_us = state->last_message_time_us;
+                msg->data.sysex.data = state->sysex_buffer;
+                msg->data.sysex.length = state->sysex_index;
                 
                 *message_complete = true;
                 state->messages_parsed++;
@@ -191,8 +184,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             
             /* Single-byte System Common messages */
             if (state->expected_data_bytes == 0) {
-                msg->length = 1;
-                msg->timestamp_us = state->last_message_time_us;
                 *message_complete = true;
                 state->messages_parsed++;
             }
@@ -264,8 +255,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             msg->channel = state->running_status & MIDI_CHANNEL_MASK;
             msg->data1 = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
             msg->data2 = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
-            msg->length = 1 + state->expected_data_bytes;
-            msg->timestamp_us = state->last_message_time_us;
             
             /* Check if this is a Channel Mode message (CC 120-127) */
             if ((state->running_status & MIDI_STATUS_TYPE_MASK) == MIDI_STATUS_CONTROL_CHANGE) {

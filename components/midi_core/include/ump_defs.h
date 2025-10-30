@@ -10,7 +10,6 @@
 #define UMP_DEFS_H
 
 #include <stdint.h>
-#include "midi_defs.h"  // Include MIDI 1.0 defs for compatibility
 
 /**
  * @defgroup UMP_MESSAGE_TYPES UMP Message Type (MT) Definitions
