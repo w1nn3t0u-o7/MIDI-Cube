@@ -1,374 +1,403 @@
 /**
  * @file main.c
- * @brief Interactive test harness for midi_core component
+ * @brief MIDI Cube - Multi-Transport MIDI Router
+ * 
+ * ESP32-S3 based MIDI router supporting:
+ * - UART (MIDI DIN 5-pin)
+ * - USB (Device & Host modes)
+ * - WiFi (Network MIDI 2.0)
+ * - Ethernet (W5500, Network MIDI 2.0)
+ * 
+ * Architecture:
+ * - Core 0: Protocol processing (RX tasks + Router)
  */
 
-#include <stdio.h>
-#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
+//#include "nvs_flash.h"
 
-// Include midi_core headers
-#include "midi_defs.h"
+// MIDI Core
 #include "midi_types.h"
-#include "midi_parser.h"
-#include "midi_message.h"
-#include "ump_defs.h"
+#include "midi_router.h"
 #include "ump_types.h"
-#include "ump_parser.h"
-//#include "ump_parser.h"
-#include "midi_translator.h"
 
-static const char *TAG = "midi_test";
+// Transports
+#include "midi_uart.h"
+//#include "midi_usb.h"
+//#include "midi_wifi.h"
+//#include "midi_ethernet.h"
 
-// Test data: Simulated MIDI byte streams
-static const uint8_t test_note_on[] = {0x90, 0x3C, 0x64};        // Note On, Ch1, C4, Vel 100
-//static const uint8_t test_note_off[] = {0x80, 0x3C, 0x40};       // Note Off, Ch1, C4, Vel 64
-//static const uint8_t test_control_change[] = {0xB0, 0x07, 0x7F}; // CC, Ch1, Volume, Max
-static const uint8_t test_running_status[] = {0x90, 0x3C, 0x64, 0x40, 0x70}; // Note On with running status
-static const uint8_t test_realtime[] = {0x90, 0x3C, 0xF8, 0x64}; // Note On with Clock inserted
+// Test suite (optional)
+#include "test_midi_core.h"
+
+static const char *TAG = "main";
+
+// Enable/disable test mode
+#define ENABLE_TEST_MODE  0
+
+//=============================================================================
+// Global Configuration
+//=============================================================================
+
+// Router input queue (shared by all transports)
+QueueHandle_t g_router_input_queue = NULL;
+
+// Transport enable flags (set via Kconfig or runtime)
+#define ENABLE_UART      1
+#define ENABLE_USB       1
+#define ENABLE_WIFI      1
+#define ENABLE_ETHERNET  1
+
+//=============================================================================
+// Transport RX Callbacks - Feed Router Queue
+//=============================================================================
 
 /**
- * @brief Test 1: MIDI 1.0 Parser - Single Message
+ * @brief UART RX Callback
+ * Called by UART driver when MIDI message received
  */
-void test_midi_parser_single_message(void) {
-    ESP_LOGI(TAG, "=== Test 1: MIDI 1.0 Parser - Single Message ===");
+static void uart_rx_callback(const midi_message_t *msg, void *ctx) {
+    // Create router packet
+    midi_router_packet_t packet = {
+        .source = MIDI_TRANSPORT_UART,
+        .format = MIDI_FORMAT_1_0,
+        .timestamp_us = esp_timer_get_time(),
+        .data.midi1 = *msg
+    };
     
-    midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
-    
-    midi_message_t msg;
-    bool complete;
-    
-    // Parse Note On byte by byte
-    for (int i = 0; i < sizeof(test_note_on); i++) {
-        esp_err_t err = midi_parser_parse_byte(&parser, test_note_on[i], &msg, &complete);
-        
-        ESP_LOGI(TAG, "Byte %d: 0x%02X - Complete: %s", 
-                 i, test_note_on[i], complete ? "YES" : "NO");
-        
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Parse error at byte %d", i);
-            return;
-        }
+    // Send to router (non-blocking to avoid UART ISR delays)
+    if (xQueueSend(g_router_input_queue, &packet, 0) != pdTRUE) {
+        // Queue full - drop packet (log in debug mode)
+        ESP_LOGD(TAG, "Router queue full, UART packet dropped");
     }
-    
-    // Verify result
-    if (complete) {
-        ESP_LOGI(TAG, "✓ Message parsed successfully!");
-        ESP_LOGI(TAG, "  Status: 0x%02X", msg.status);
-        ESP_LOGI(TAG, "  Channel: %d", msg.channel);
-        ESP_LOGI(TAG, "  data.bytes[0] (Note): %d", msg.data.bytes[0]);
-        ESP_LOGI(TAG, "  data.bytes[1] (Velocity): %d", msg.data.bytes[1]);
-        
-        // Validate values
-        if (msg.status == 0x90 && msg.channel == 0 && 
-            msg.data.bytes[0] == 60 && msg.data.bytes[1] == 100) {
-            ESP_LOGI(TAG, "✓✓ All values correct!");
-        } else {
-            ESP_LOGE(TAG, "✗ Values incorrect!");
-        }
-    }
-    
-    ESP_LOGI(TAG, "");
 }
 
 /**
- * @brief Test 2: MIDI 1.0 Parser - Running Status
+ * @brief USB RX Callback
  */
-void test_midi_parser_running_status(void) {
-    ESP_LOGI(TAG, "=== Test 2: MIDI 1.0 Parser - Running Status ===");
+// static void usb_rx_callback(const midi_usb_packet_t *usb_pkt, void *ctx) {
+//     midi_router_packet_t packet = {
+//         .source = MIDI_TRANSPORT_USB,
+//         .timestamp_us = usb_pkt->timestamp_us
+//     };
     
-    midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
+//     // Check if MIDI 1.0 or 2.0
+//     if (usb_pkt->protocol == MIDI_USB_PROTOCOL_1_0) {
+//         packet.format = MIDI_FORMAT_1_0;
+//         // Convert USB-MIDI to standard MIDI 1.0
+//         packet.data.midi1.status = usb_pkt->data.midi1.midi_bytes[0];
+//         packet.data.midi1.channel = usb_pkt->data.midi1.midi_bytes[0] & 0x0F;
+//         packet.data.midi1.data.bytes[0] = usb_pkt->data.midi1.midi_bytes[1];
+//         packet.data.midi1.data.bytes[1] = usb_pkt->data.midi1.midi_bytes[2];
+//     } else {
+//         packet.format = MIDI_FORMAT_2_0;
+//         packet.data.ump = usb_pkt->data.ump;
+//     }
     
-    midi_message_t msg;
-    bool complete;
-    int message_count = 0;
-    
-    // Parse bytes: [0x90, 0x3C, 0x64, 0x40, 0x70]
-    // Should produce TWO Note On messages
-    for (int i = 0; i < sizeof(test_running_status); i++) {
-        esp_err_t err = midi_parser_parse_byte(&parser, test_running_status[i], &msg, &complete);
-        
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Parse error at byte %d", i);
-            return;
-        }
-        
-        if (complete) {
-            message_count++;
-            ESP_LOGI(TAG, "Message %d: Note %d, Velocity %d", 
-                     message_count, msg.data.bytes[0], msg.data.bytes[1]);
-        }
-    }
-    
-    if (message_count == 2) {
-        ESP_LOGI(TAG, "✓ Running Status works correctly!");
-    } else {
-        ESP_LOGE(TAG, "✗ Expected 2 messages, got %d", message_count);
-    }
-    
-    ESP_LOGI(TAG, "");
-}
+//     xQueueSend(g_router_input_queue, &packet, 0);
+// }
 
 /**
- * @brief Test 3: MIDI 1.0 Parser - Real-Time Message Injection
+ * @brief WiFi/Ethernet RX Callback (UMP packets)
  */
-void test_midi_parser_realtime(void) {
-    ESP_LOGI(TAG, "=== Test 3: MIDI 1.0 Parser - Real-Time Injection ===");
+// static void network_rx_callback(const ump_packet_t *ump, void *ctx) {
+//     midi_transport_t source = (midi_transport_t)(uintptr_t)ctx;
     
-    midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
+//     midi_router_packet_t packet = {
+//         .source = source,
+//         .format = MIDI_FORMAT_2_0,
+//         .timestamp_us = esp_timer_get_time(),
+//         .data.ump = *ump
+//     };
     
-    midi_message_t msg;
-    bool complete;
-    int note_msg_count = 0;
-    int realtime_msg_count = 0;
+//     xQueueSend(g_router_input_queue, &packet, 0);
+// }
+
+//=============================================================================
+// MIDI Router Task - Core 0, Priority 10
+//=============================================================================
+
+/**
+ * @brief Central MIDI Router Task
+ * 
+ * Runs on Core 0 (protocol core) at high priority.
+ * Receives packets from all transports and routes them based on
+ * routing matrix configuration.
+ */
+static void midi_router_task(void *pvParameters) {
+    midi_router_packet_t packet;
     
-    // Parse bytes: [0x90, 0x3C, 0xF8, 0x64]
-    // Should produce: 1 Clock message, then 1 Note On message
-    for (int i = 0; i < sizeof(test_realtime); i++) {
-        esp_err_t err = midi_parser_parse_byte(&parser, test_realtime[i], &msg, &complete);
-        
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Parse error at byte %d", i);
-            return;
-        }
-        
-        if (complete) {
-            if (msg.status == 0xF8) {
-                realtime_msg_count++;
-                ESP_LOGI(TAG, "  Clock message received (correct!)");
-            } else if (msg.status == 0x90) {
-                note_msg_count++;
-                ESP_LOGI(TAG, "  Note On received: Note %d, Vel %d", msg.data.bytes[0], msg.data.bytes[1]);
+    ESP_LOGI(TAG, "Router task started on core %d", xPortGetCoreID());
+    
+    while (1) {
+        // Wait for incoming packet from any transport
+        if (xQueueReceive(g_router_input_queue, &packet, portMAX_DELAY) == pdTRUE) {
+            
+            // Route packet via router
+            // Router handles:
+            // - Routing matrix lookup
+            // - Protocol translation (MIDI 1.0 ↔ MIDI 2.0)
+            // - Filtering
+            // - Output to destination transport(s)
+            esp_err_t err = midi_router_route_packet(&packet);
+            
+            if (err != ESP_OK) {
+                ESP_LOGW(TAG, "Router error: %s", esp_err_to_name(err));
             }
         }
     }
-    
-    if (note_msg_count == 1 && realtime_msg_count == 1) {
-        ESP_LOGI(TAG, "✓ Real-Time message handling correct!");
-    } else {
-        ESP_LOGE(TAG, "✗ Expected 1 Note + 1 Clock, got %d Note + %d Clock", 
-                 note_msg_count, realtime_msg_count);
-    }
-    
-    ESP_LOGI(TAG, "");
 }
 
-/**
- * @brief Test 4: UMP Parser - MIDI 2.0 Note On
- */
-void test_ump_parser_midi2_note(void) {
-    ESP_LOGI(TAG, "=== Test 4: UMP Parser - MIDI 2.0 Note On ===");
-    
-    // Construct MIDI 2.0 Note On UMP packet
-    // MT=0x4, Group=0, Status=0x90, Channel=0, Note=60
-    uint32_t words[2] = {
-        0x49003C00,  // Word 0
-        0x80000000   // Word 1: Velocity=32768 (center)
-    };
-    
-    ump_packet_t packet;
-    esp_err_t err = ump_parser_parse_packet(words, &packet);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "✗ UMP parse failed!");
-        return;
-    }
-    
-    ESP_LOGI(TAG, "✓ UMP parsed successfully!");
-    ESP_LOGI(TAG, "  Message Type: 0x%X", packet.message_type);
-    ESP_LOGI(TAG, "  Group: %d", packet.group);
-    ESP_LOGI(TAG, "  Num Words: %d", packet.num_words);
-    ESP_LOGI(TAG, "  Word 0: 0x%08lX", packet.words[0]);
-    ESP_LOGI(TAG, "  Word 1: 0x%08lX", packet.words[1]);
-    
-    // Extract note and velocity
-    uint8_t status = (packet.words[0] >> 16) & 0xFF;
-    uint8_t channel = (packet.words[0] >> 16) & 0x0F;
-    uint8_t note = (packet.words[0] >> 8) & 0xFF;
-    uint16_t velocity = packet.words[1] >> 16;
-    
-    ESP_LOGI(TAG, "  Decoded: Status=0x%02X, Ch=%d, Note=%d, Vel=%d", 
-             status, channel, note, velocity);
-    
-    if (packet.message_type == UMP_MT_MIDI2_CHANNEL_VOICE && 
-        packet.num_words == 2 && note == 60 && velocity == 32768) {
-        ESP_LOGI(TAG, "✓✓ All UMP values correct!");
-    } else {
-        ESP_LOGE(TAG, "✗ UMP values incorrect!");
-    }
-    
-    ESP_LOGI(TAG, "");
-}
+//=============================================================================
+// Statistics Task - Core 1, Priority 3
+//=============================================================================
 
 /**
- * @brief Test 5: Translation - MIDI 1.0 to MIDI 2.0
+ * @brief Statistics and Monitoring Task
  */
-void test_translation_1to2(void) {
-    ESP_LOGI(TAG, "=== Test 5: Translation - MIDI 1.0 to MIDI 2.0 ===");
+static void stats_task(void *pvParameters) {
+    ESP_LOGI(TAG, "Statistics task started on core %d", xPortGetCoreID());
     
-    // Create MIDI 1.0 Note On
-    midi_message_t midi1_msg = {
-        .type = MIDI_MSG_TYPE_CHANNEL,
-        .status = 0x90,
-        .channel = 0,
-        .data.bytes[0] = 60,    // Middle C
-        .data.bytes[1] = 64,    // Center velocity (7-bit)
-    };
-    
-    ESP_LOGI(TAG, "Input MIDI 1.0:");
-    ESP_LOGI(TAG, "  Status: 0x%02X", midi1_msg.status);
-    ESP_LOGI(TAG, "  Note: %d", midi1_msg.data.bytes[0]);
-    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_msg.data.bytes[1]);
-    
-    // Translate to MIDI 2.0
-    ump_packet_t ump_out;
-    esp_err_t err = midi_translate_1to2(&midi1_msg, &ump_out);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "✗ Translation failed!");
-        return;
-    }
-    
-    ESP_LOGI(TAG, "✓ Translation successful!");
-    ESP_LOGI(TAG, "Output UMP (MIDI 2.0):");
-    ESP_LOGI(TAG, "  MT: 0x%X", ump_out.message_type);
-    ESP_LOGI(TAG, "  Word 0: 0x%08lX", ump_out.words[0]);
-    ESP_LOGI(TAG, "  Word 1: 0x%08lX", ump_out.words[1]);
-    
-    uint16_t velocity16 = ump_out.words[1] >> 16;
-    ESP_LOGI(TAG, "  Velocity (16-bit): %d", velocity16);
-    
-    // Check if center value (64) mapped to center (32768)
-    if (velocity16 == 32768) {
-        ESP_LOGI(TAG, "✓✓ Center value preserved correctly! (64 → 32768)");
-    } else {
-        ESP_LOGW(TAG, "⚠ Center value not exact: expected 32768, got %d", velocity16);
-    }
-    
-    ESP_LOGI(TAG, "");
-}
-
-/**
- * @brief Test 6: Translation - MIDI 2.0 to MIDI 1.0
- */
-void test_translation_2to1(void) {
-    ESP_LOGI(TAG, "=== Test 6: Translation - MIDI 2.0 to MIDI 1.0 ===");
-    
-    // Create MIDI 2.0 Note On UMP
-    ump_packet_t ump_in = {
-        .words = {0x40906000, 0xCCCC0000, 0, 0},  // Velocity = 0xCCCC (52428)
-        .num_words = 2,
-        .message_type = UMP_MT_MIDI2_CHANNEL_VOICE,
-        .group = 0
-    };
-    
-    uint16_t velocity16 = ump_in.words[1] >> 16;
-    ESP_LOGI(TAG, "Input UMP (MIDI 2.0):");
-    ESP_LOGI(TAG, "  Velocity (16-bit): %d", velocity16);
-    
-    // Translate to MIDI 1.0
-    midi_message_t midi1_out;
-    esp_err_t err = midi_translate_2to1(&ump_in, &midi1_out);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "✗ Translation failed!");
-        return;
-    }
-    
-    ESP_LOGI(TAG, "✓ Translation successful!");
-    ESP_LOGI(TAG, "Output MIDI 1.0:");
-    ESP_LOGI(TAG, "  Status: 0x%02X", midi1_out.status);
-    ESP_LOGI(TAG, "  Note: %d", midi1_out.data.bytes[0]);
-    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_out.data.bytes[1]);
-    
-    // 52428 >> 9 = 102
-    uint8_t expected = velocity16 >> 9;
-    if (midi1_out.data.bytes[1] == expected) {
-        ESP_LOGI(TAG, "✓✓ Downscaling correct! (52428 → %d)", expected);
-    } else {
-        ESP_LOGE(TAG, "✗ Expected %d, got %d", expected, midi1_out.data.bytes[1]);
-    }
-    
-    ESP_LOGI(TAG, "");
-}
-
-/**
- * @brief Test 7: Upscaling Algorithm Verification
- */
-void test_upscaling_algorithm(void) {
-    ESP_LOGI(TAG, "=== Test 7: Upscaling Algorithm - Critical Points ===");
-    
-    // Test critical values: 0, 64 (center), 127 (max)
-    uint8_t test_values[] = {0, 1, 63, 64, 65, 126, 127};
-    uint16_t expected[] = {0, 520, 32767, 32768, 33288, 65015, 65535};
-    
-    bool all_correct = true;
-    
-    for (int i = 0; i < sizeof(test_values); i++) {
-        uint16_t result = midi_upscale_7to16(test_values[i]);
-        bool correct = (result == expected[i]);
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(5000));  // Every 5 seconds
         
-        ESP_LOGI(TAG, "  %3d → %5d %s (expected %5d)", 
-                 test_values[i], result, 
-                 correct ? "✓" : "✗", expected[i]);
+        // Get router stats
+        midi_router_stats_t stats;
+        midi_router_get_stats(&stats);
         
-        if (!correct) all_correct = false;
+        // Log activity
+        ESP_LOGI(TAG, "=== MIDI Activity (last 5s) ===");
+        ESP_LOGI(TAG, "  UART:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_UART]);
+        ESP_LOGI(TAG, "  USB:      %lu packets", stats.packets_routed[MIDI_TRANSPORT_USB]);
+        ESP_LOGI(TAG, "  WiFi:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_WIFI]);
+        ESP_LOGI(TAG, "  Ethernet: %lu packets", stats.packets_routed[MIDI_TRANSPORT_ETHERNET]);
+        ESP_LOGI(TAG, "  Dropped:  %lu packets", stats.packets_dropped);
+        
+        // Check queue depth
+        UBaseType_t queue_waiting = uxQueueMessagesWaiting(g_router_input_queue);
+        ESP_LOGI(TAG, "  Queue depth: %u / 64", queue_waiting);
+    }
+}
+
+//=============================================================================
+// Initialization Functions
+//=============================================================================
+
+/**
+ * @brief Initialize NVS (required for WiFi)
+ */
+// static void init_nvs(void) {
+//     esp_err_t err = nvs_flash_init();
+//     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+//         ESP_ERROR_CHECK(nvs_flash_erase());
+//         err = nvs_flash_init();
+//     }
+//     ESP_ERROR_CHECK(err);
+//     ESP_LOGI(TAG, "NVS initialized");
+// }
+
+/**
+ * @brief Initialize MIDI Router
+ */
+static void init_router(void) {
+    // Create router input queue (64 packets deep)
+    g_router_input_queue = xQueueCreate(64, sizeof(midi_router_packet_t));
+    if (!g_router_input_queue) {
+        ESP_LOGE(TAG, "Failed to create router queue!");
+        esp_restart();
     }
     
-    if (all_correct) {
-        ESP_LOGI(TAG, "✓✓ Upscaling algorithm correct!");
-    } else {
-        ESP_LOGE(TAG, "✗ Upscaling algorithm has errors!");
+    // Configure router
+    midi_router_config_t router_cfg = {
+        .auto_translate = true,      // Auto MIDI 1.0 ↔ 2.0 translation
+        .merge_inputs = false,       // Use routing matrix
+        .default_group = 0,          // Default UMP group
+        .enable_filtering = true     // Enable message filtering
+    };
+    
+    // Set default routing matrix (all inputs → all outputs except loopback)
+    for (int src = 0; src < MIDI_TRANSPORT_COUNT; src++) {
+        for (int dest = 0; dest < MIDI_TRANSPORT_COUNT; dest++) {
+            router_cfg.routing_matrix[src][dest] = (src != dest);
+        }
     }
     
-    ESP_LOGI(TAG, "");
+    ESP_ERROR_CHECK(midi_router_init(&router_cfg));
+    ESP_LOGI(TAG, "MIDI Router initialized");
 }
 
 /**
- * @brief Main application entry point
+ * @brief Initialize UART Transport
  */
+static void init_uart(void) {
+#if ENABLE_UART
+    midi_uart_config_t uart_cfg = {
+        .uart_num = UART_NUM_1,
+        .tx_pin = CONFIG_MIDI_UART_TX_GPIO,
+        .rx_pin = CONFIG_MIDI_UART_RX_GPIO,
+        .baud_rate = 31250,
+        .enable_tx = true,
+        .enable_rx = true,
+        .rx_callback = uart_rx_callback,
+        .rx_callback_ctx = NULL
+    };
+    
+    ESP_ERROR_CHECK(midi_uart_init(&uart_cfg));
+    ESP_LOGI(TAG, "UART MIDI initialized (TX: GPIO%d, RX: GPIO%d)", 
+             uart_cfg.tx_pin, uart_cfg.rx_pin);
+#endif
+}
+
+/**
+ * @brief Initialize USB Transport
+ */
+// static void init_usb(void) {
+// #if ENABLE_USB
+//     midi_usb_config_t usb_cfg = {
+//         .mode = MIDI_USB_MODE_AUTO,  // Auto-detect device/host
+//         .enable_midi2 = true,
+//         .num_cables = 1,
+//         .device_vid = 0x1234,        // TODO: Get real VID
+//         .device_pid = 0x5678,
+//         .rx_callback = usb_rx_callback,
+//         .callback_ctx = NULL
+//     };
+    
+//     ESP_ERROR_CHECK(midi_usb_init(&usb_cfg));
+//     ESP_LOGI(TAG, "USB MIDI initialized");
+// #endif
+// }
+
+/**
+ * @brief Initialize WiFi Transport
+ */
+// static void init_wifi(void) {
+// #if ENABLE_WIFI
+//     midi_wifi_config_t wifi_cfg = {
+//         .mode = MIDI_WIFI_MODE_HOST,
+//         .host_port = CONFIG_MIDI_WIFI_HOST_UDP_PORT,
+//         .enable_mdns = true,
+//         .enable_fec = true,
+//         .rx_callback = (midi_wifi_rx_callback_t)network_rx_callback,
+//         .callback_ctx = (void*)MIDI_TRANSPORT_WIFI
+//     };
+//     strcpy(wifi_cfg.endpoint_name, CONFIG_MIDI_WIFI_UMP_ENDPOINT_NAME);
+    
+//     ESP_ERROR_CHECK(midi_wifi_init(&wifi_cfg));
+    
+//     // Connect to WiFi AP
+//     #ifdef CONFIG_MIDI_WIFI_SSID
+//     ESP_LOGI(TAG, "Connecting to WiFi: %s", CONFIG_MIDI_WIFI_SSID);
+//     midi_wifi_connect(CONFIG_MIDI_WIFI_SSID, CONFIG_MIDI_WIFI_PASSWORD, 10000);
+//     #endif
+    
+//     ESP_LOGI(TAG, "WiFi MIDI initialized");
+// #endif
+// }
+
+/**
+ * @brief Initialize Ethernet Transport
+ */
+// static void init_ethernet(void) {
+// #if ENABLE_ETHERNET
+//     midi_ethernet_config_t eth_cfg = {
+//         .spi_host = CONFIG_MIDI_ETH_SPI_HOST,
+//         .spi_clock_speed_mhz = CONFIG_MIDI_ETH_SPI_CLOCK_MHZ,
+//         .gpio_sclk = CONFIG_MIDI_ETH_SPI_SCLK_GPIO,
+//         .gpio_mosi = CONFIG_MIDI_ETH_SPI_MOSI_GPIO,
+//         .gpio_miso = CONFIG_MIDI_ETH_SPI_MISO_GPIO,
+//         .gpio_cs = CONFIG_MIDI_ETH_SPI_CS_GPIO,
+//         .gpio_int = CONFIG_MIDI_ETH_SPI_INT_GPIO,
+//         .use_dhcp = CONFIG_MIDI_ETH_USE_DHCP,
+//         .host_port = CONFIG_MIDI_ETH_HOST_UDP_PORT,
+//         .enable_mdns = true,
+//         .rx_callback = (midi_ethernet_rx_callback_t)network_rx_callback,
+//         .callback_ctx = (void*)MIDI_TRANSPORT_ETHERNET
+//     };
+//     strcpy(eth_cfg.endpoint_name, CONFIG_MIDI_ETH_UMP_ENDPOINT_NAME);
+    
+//     ESP_ERROR_CHECK(midi_ethernet_init(&eth_cfg));
+    
+//     // Wait for Ethernet link
+//     ESP_LOGI(TAG, "Waiting for Ethernet link...");
+//     midi_ethernet_wait_for_link(10000);
+    
+//     ESP_LOGI(TAG, "Ethernet MIDI initialized");
+// #endif
+// }
+
+//=============================================================================
+// Main Application Entry Point
+//=============================================================================
+
 void app_main(void) {
     ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "====================================");
-    ESP_LOGI(TAG, "  MIDI Core Component Test Suite");
-    ESP_LOGI(TAG, "====================================");
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "  MIDI Cube - Multi-Transport Router");
+    ESP_LOGI(TAG, "  ESP32-S3 Dual Core");
+    ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "");
     
-    vTaskDelay(pdMS_TO_TICKS(1000));
+#if ENABLE_TEST_MODE
+    // Run test suite instead of normal operation
+    midi_core_run_tests();
+    ESP_LOGI(TAG, "Test mode complete. Reboot to run application.");
+    return;
+#endif
     
-    // Run all tests
-    test_midi_parser_single_message();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    //=========================================================================
+    // 1. System Initialization
+    //=========================================================================
+    init_nvs();
+    init_router();
     
-    test_midi_parser_running_status();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    //=========================================================================
+    // 2. Transport Initialization
+    //=========================================================================
+    init_uart();
+    init_usb();
+    init_wifi();
+    init_ethernet();
     
-    test_midi_parser_realtime();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    //=========================================================================
+    // 3. Create FreeRTOS Tasks
+    //=========================================================================
     
-    test_ump_parser_midi2_note();
-    vTaskDelay(pdMS_TO_TICKS(500));
+    // Core 0: MIDI Router (high priority)
+    xTaskCreatePinnedToCore(
+        midi_router_task,
+        "midi_router",
+        8192,                    // Stack size
+        NULL,
+        10,                      // Priority (high)
+        NULL,
+        0                        // Core 0 (protocol core)
+    );
     
-    test_translation_1to2();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    test_translation_2to1();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    test_upscaling_algorithm();
+    // Core 1: Statistics Task (low priority)
+    xTaskCreatePinnedToCore(
+        stats_task,
+        "stats",
+        3072,
+        NULL,
+        3,                       // Priority (low)
+        NULL,
+        1                        // Core 1
+    );
     
     ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "====================================");
-    ESP_LOGI(TAG, "  All Tests Complete!");
-    ESP_LOGI(TAG, "====================================");
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "  System Running!");
+    ESP_LOGI(TAG, "  Router: Core 0, Priority 10");
+    ESP_LOGI(TAG, "  UI: Core 1, Priority 5");
+    ESP_LOGI(TAG, "  Stats: Core 1, Priority 3");
+    ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "");
+    
+    // Main task can now delete itself or handle other duties
+    // vTaskDelete(NULL);
 }
