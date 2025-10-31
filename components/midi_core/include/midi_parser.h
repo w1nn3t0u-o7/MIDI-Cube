@@ -10,6 +10,7 @@
 #define MIDI_PARSER_H
 
 #include "midi_types.h"
+#include "midi_defs.h"
 #include "esp_err.h"
 
 /**
@@ -31,10 +32,6 @@ typedef struct {
     uint8_t *sysex_buffer;         /**< SysEx data buffer */
     uint16_t sysex_index;          /**< Current SysEx buffer position */
     uint16_t sysex_buffer_size;    /**< Size of SysEx buffer */
-    
-    /* Active Sensing */
-    bool active_sensing_enabled;   /**< Active sensing detected */
-    uint32_t last_message_time_us; /**< Last message timestamp */
     
     /* Statistics */
     uint32_t messages_parsed;      /**< Total messages parsed */

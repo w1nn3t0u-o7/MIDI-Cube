@@ -107,16 +107,6 @@ esp_err_t midi_message_to_bytes(const midi_message_t *msg,
                                 size_t *bytes_written);
 
 /**
- * @brief Extract note information from message
- * 
- * @param msg Source MIDI message
- * @param note_msg Destination note message structure
- * @return ESP_OK if message is Note On/Off, ESP_ERR_INVALID_ARG otherwise
- */
-esp_err_t midi_message_to_note(const midi_message_t *msg,
-                                midi_note_message_t *note_msg);
-
-/**
  * @brief Check if message is Note On (with velocity > 0)
  * 
  * @param msg MIDI message

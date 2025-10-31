@@ -4,3 +4,5 @@ sdkconfig.old
 .clangd
 .vscode/
 .devcontainer/
+managed_components/
+dependencies.lock

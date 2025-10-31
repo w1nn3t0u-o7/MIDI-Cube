@@ -1,0 +1,95 @@
+menu "MIDI Ethernet Configuration (W5500)"
+
+    config MIDI_ETH_SPI_HOST
+        int "SPI Host Number"
+        default 2
+        range 1 3
+        help
+            SPI peripheral (1=SPI2, 2=SPI3). SPI1 is reserved for flash.
+
+    config MIDI_ETH_SPI_SCLK_GPIO
+        int "SPI SCLK GPIO"
+        default 14
+        range 0 48
+        help
+            GPIO for SPI clock signal.
+
+    config MIDI_ETH_SPI_MOSI_GPIO
+        int "SPI MOSI GPIO"
+        default 13
+        range 0 48
+        help
+            GPIO for SPI MOSI (Master Out Slave In).
+
+    config MIDI_ETH_SPI_MISO_GPIO
+        int "SPI MISO GPIO"
+        default 12
+        range 0 48
+        help
+            GPIO for SPI MISO (Master In Slave Out).
+
+    config MIDI_ETH_SPI_CS_GPIO
+        int "SPI CS GPIO"
+        default 15
+        range 0 48
+        help
+            GPIO for W5500 chip select (CS).
+
+    config MIDI_ETH_SPI_INT_GPIO
+        int "W5500 INT GPIO"
+        default 4
+        range -1 48
+        help
+            GPIO for W5500 interrupt pin. Set to -1 to use polling.
+
+    config MIDI_ETH_SPI_CLOCK_MHZ
+        int "SPI Clock Speed (MHz)"
+        default 20
+        range 1 80
+        help
+            SPI clock frequency in MHz. W5500 supports up to 80MHz.
+
+    config MIDI_ETH_HOST_UDP_PORT
+        int "MIDI UDP Port"
+        default 5004
+        range 1024 65535
+        help
+            UDP port for MIDI 2.0 (default 5004).
+
+    config MIDI_ETH_UMP_ENDPOINT_NAME
+        string "UMP Endpoint Name"
+        default "MIDI Cube Ethernet"
+        help
+            Name advertised via mDNS.
+
+    config MIDI_ETH_MAX_CLIENTS
+        int "Maximum Simultaneous Clients"
+        default 4
+        range 1 16
+        help
+            Maximum concurrent MIDI sessions.
+
+    config MIDI_ETH_USE_DHCP
+        bool "Use DHCP"
+        default y
+        help
+            Automatically obtain IP address via DHCP.
+
+    config MIDI_ETH_STATIC_IP
+        string "Static IP Address"
+        default "192.168.1.100"
+        depends on !MIDI_ETH_USE_DHCP
+        help
+            Static IP address if DHCP disabled.
+
+    config MIDI_ETH_STATIC_NETMASK
+        string "Static Netmask"
+        default "255.255.255.0"
+        depends on !MIDI_ETH_USE_DHCP
+
+    config MIDI_ETH_STATIC_GATEWAY
+        string "Static Gateway"
+        default "192.168.1.1"
+        depends on !MIDI_ETH_USE_DHCP
+
+endmenu

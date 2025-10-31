@@ -1,0 +1,81 @@
+menu "MIDI USB Configuration"
+
+    choice MIDI_USB_MODE
+        prompt "USB Operating Mode"
+        default MIDI_USB_MODE_AUTO
+        help
+            Select USB operating mode for MIDI interface.
+        
+        config MIDI_USB_MODE_AUTO
+            bool "Automatic (detect on boot)"
+            help
+                Automatically detect USB mode based on ID pin.
+                Device mode if USB connected to host.
+                Host mode if MIDI device connected.
+        
+        config MIDI_USB_MODE_DEVICE_ONLY
+            bool "Device Only"
+            help
+                Always operate as USB device (for PC connection).
+        
+        config MIDI_USB_MODE_HOST_ONLY
+            bool "Host Only"
+            help
+                Always operate as USB host (for MIDI keyboard/controller).
+    endchoice
+
+    config MIDI_USB_DEVICE_VID
+        hex "USB Vendor ID (Device Mode)"
+        default 0x303A
+        help
+            Espressif VID. Change if you have your own.
+
+    config MIDI_USB_DEVICE_PID
+        hex "USB Product ID (Device Mode)"
+        default 0x4002
+        help
+            Product ID for your MIDI interface.
+
+    config MIDI_USB_MANUFACTURER
+        string "Manufacturer String"
+        default "Your Company"
+
+    config MIDI_USB_PRODUCT
+        string "Product String"
+        default "MIDI Cube"
+
+    config MIDI_USB_SERIAL
+        string "Serial Number"
+        default "123456"
+
+    config MIDI_USB_SUPPORT_MIDI2
+        bool "Enable MIDI 2.0 Support (UMP)"
+        default y
+        help
+            Enable USB MIDI 2.0 with Universal MIDI Packet support.
+            Provides both MIDI 1.0 (Alternate Setting 0) and
+            MIDI 2.0 (Alternate Setting 1) interfaces.
+
+    config MIDI_USB_MAX_CABLES
+        int "Maximum Virtual Cables"
+        default 1
+        range 1 16
+        help
+            Number of virtual MIDI cables (1-16).
+            Each cable = separate MIDI stream.
+
+    config MIDI_USB_RX_BUFFER_SIZE
+        int "RX Buffer Size (packets)"
+        default 32
+        range 8 128
+        help
+            Number of MIDI packets to buffer on RX.
+
+    config MIDI_USB_TX_BUFFER_SIZE
+        int "TX Buffer Size (packets)"
+        default 32
+        range 8 128
+        help
+            Number of MIDI packets to buffer on TX.
+
+endmenu
