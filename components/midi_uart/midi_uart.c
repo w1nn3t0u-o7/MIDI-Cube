@@ -39,9 +39,6 @@ typedef struct {
     // FreeRTOS task
     TaskHandle_t rx_task_handle;
     
-    // Statistics
-    midi_uart_stats_t stats;
-    
 } midi_uart_state_t;
 
 static midi_uart_state_t g_uart_state = {0};
@@ -85,7 +82,6 @@ static void midi_uart_rx_task(void *arg) {
                             // Process each byte
                             for (int i = 0; i < len; i++) {
                                 rx_byte = data[i];
-                                state->stats.bytes_received++;
                                 
                                 // Feed byte to MIDI parser
                                 esp_err_t err = midi_parser_parse_byte(
@@ -96,15 +92,12 @@ static void midi_uart_rx_task(void *arg) {
                                 );
                                 
                                 if (err != ESP_OK) {
-                                    state->stats.parser_errors++;
                                     ESP_LOGW(TAG, "Parser error for byte 0x%02X", rx_byte);
                                     continue;
                                 }
                                 
                                 // If message complete, call callback
                                 if (complete) {
-                                    state->stats.messages_received++;
-                                    
                                     // Call user callback
                                     if (state->rx_callback) {
                                         state->rx_callback(&msg, state->rx_callback_ctx);
@@ -120,26 +113,22 @@ static void midi_uart_rx_task(void *arg) {
                     break;
                     
                 case UART_BUFFER_FULL:
-                    state->stats.rx_overruns++;
                     ESP_LOGW(TAG, "UART RX buffer full - flushing!");
                     uart_flush_input(MIDI_UART_PORT);
                     xQueueReset(uart_queue);
                     break;
                     
                 case UART_FIFO_OVF:
-                    state->stats.rx_overruns++;
                     ESP_LOGW(TAG, "UART FIFO overflow!");
                     uart_flush_input(MIDI_UART_PORT);
                     xQueueReset(uart_queue);
                     break;
                     
                 case UART_FRAME_ERR:
-                    state->stats.rx_errors++;
                     ESP_LOGW(TAG, "UART frame error");
                     break;
                     
                 case UART_PARITY_ERR:
-                    state->stats.rx_errors++;
                     ESP_LOGW(TAG, "UART parity error");
                     break;
                     
@@ -277,15 +266,11 @@ esp_err_t midi_uart_send_message(const midi_message_t *msg) {
     int sent = uart_write_bytes(MIDI_UART_PORT, (const char *)buffer, bytes_written);
     
     if (sent == bytes_written) {
-        g_uart_state.stats.bytes_transmitted += bytes_written;
-        g_uart_state.stats.messages_transmitted++;
         return ESP_OK;
     } else if (sent < 0) {
-        g_uart_state.stats.tx_overruns++;
         return ESP_FAIL;
     } else {
         // Partial write (shouldn't happen with sufficient buffer)
-        g_uart_state.stats.tx_overruns++;
         return ESP_ERR_TIMEOUT;
     }
 }
@@ -305,35 +290,10 @@ esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len) {
     int sent = uart_write_bytes(MIDI_UART_PORT, (const char *)data, len);
     
     if (sent == len) {
-        g_uart_state.stats.bytes_transmitted += len;
         return ESP_OK;
     } else {
-        g_uart_state.stats.tx_overruns++;
         return ESP_FAIL;
     }
-}
-
-/**
- * @brief Get statistics
- */
-esp_err_t midi_uart_get_stats(midi_uart_stats_t *stats) {
-    if (!stats) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    *stats = g_uart_state.stats;
-    stats->parser_errors = g_uart_state.parser.parse_errors;
-    
-    return ESP_OK;
-}
-
-/**
- * @brief Reset statistics
- */
-esp_err_t midi_uart_reset_stats(void) {
-    memset(&g_uart_state.stats, 0, sizeof(midi_uart_stats_t));
-    g_uart_state.parser.parse_errors = 0;
-    return ESP_OK;
 }
 
 /**

@@ -46,20 +46,6 @@ typedef struct {
 } midi_uart_config_t;
 
 /**
- * @brief MIDI UART statistics
- */
-typedef struct {
-    uint32_t bytes_received;       /**< Total bytes received */
-    uint32_t bytes_transmitted;    /**< Total bytes transmitted */
-    uint32_t messages_received;    /**< Complete messages parsed */
-    uint32_t messages_transmitted; /**< Messages sent */
-    uint32_t rx_errors;            /**< RX errors (framing, parity, etc.) */
-    uint32_t tx_overruns;          /**< TX buffer overruns */
-    uint32_t rx_overruns;          /**< RX buffer overruns */
-    uint32_t parser_errors;        /**< Parser errors */
-} midi_uart_stats_t;
-
-/**
  * @brief Initialize MIDI UART driver
  * 
  * Configures UART hardware for MIDI 1.0:
@@ -103,14 +89,6 @@ esp_err_t midi_uart_send_message(const midi_message_t *msg);
  * @return ESP_OK on success
  */
 esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len);
-
-/**
- * @brief Get MIDI UART statistics
- * 
- * @param stats Pointer to statistics structure to fill
- * @return ESP_OK on success
- */
-esp_err_t midi_uart_get_stats(midi_uart_stats_t *stats);
 
 /**
  * @brief Reset MIDI UART statistics
