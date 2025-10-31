@@ -1,10 +1,16 @@
-# ESP32-S3 MIDI Core Implementation - Review & Improvements
+# TODO
 
-**Project**: Multi-Transport MIDI Interface (UART/DIN, USB 1.0/2.0, Ethernet, WiFi)  
-**Date**: October 27, 2025  
-**Component**: midi_core
+## midi_core
+
+- Add Active Sensing support
+- Add more robust System Exclusive support 
+- Add trans more translation cases (Right now only note on supported)
+
+## midi_uart
+
 
 ---
+# Perplexity additions
 
 ## Table of Contents
 

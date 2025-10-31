@@ -38,8 +38,8 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet) {
     // Example: Note On translation only; expand for full coverage as needed
     if ((msg->status & 0xF0) == MIDI_STATUS_NOTE_ON) {
         // Upscale velocity
-        uint16_t velocity16 = midi_upscale_7to16(msg->data2);
-        return ump_build_midi2_note_on(0, msg->channel, msg->data1, velocity16, 0, 0, packet);
+        uint16_t velocity16 = midi_upscale_7to16(msg->data.bytes[1]);
+        return ump_build_midi2_note_on(0, msg->channel, msg->data.bytes[0], velocity16, 0, 0, packet);
     }
     // Add translation for other message types here...
     return ESP_ERR_NOT_SUPPORTED;
@@ -58,9 +58,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg) {
         uint8_t velocity7 = midi_downscale_16to7(velocity16);
         msg->status = MIDI_STATUS_NOTE_ON | channel;
         msg->channel = channel;
-        msg->data1 = note;
-        msg->data2 = velocity7;
-        msg->length = 3;
+        msg->data.bytes[0] = note;
+        msg->data.bytes[1] = velocity7;
         return ESP_OK;
     }
     // Add more as needed

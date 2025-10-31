@@ -6,7 +6,6 @@
  * - Running Status support
  * - Real-Time message handling
  * - System Exclusive parsing
- * - Active Sensing detection
  */
 
 #include "midi_parser.h"
@@ -69,8 +68,6 @@ esp_err_t midi_parser_init(midi_parser_state_t *state,
     
     state->sysex_buffer = sysex_buffer;
     state->sysex_buffer_size = sysex_buffer_size;
-    state->active_sensing_enabled = false;
-    state->last_message_time_us = esp_timer_get_time();
     
     ESP_LOGI(TAG, "MIDI parser initialized (SysEx buffer: %u bytes)",
              sysex_buffer_size);
@@ -112,9 +109,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
     }
     
     *message_complete = false;
-    state->last_message_time_us = esp_timer_get_time();
     
-    /* === REAL-TIME MESSAGES (0xF8-0xFF) === */
+    /* === SYSTEM REAL-TIME MESSAGES (0xF8-0xFF) === */
     /* Real-Time messages can occur at ANY time, even between status 
      * and data bytes. They must be processed immediately without 
      * affecting running status or current message assembly. 
@@ -122,12 +118,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
     if (midi_is_realtime_message(byte)) {
         msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
         msg->status = byte;
-        msg->channel = 0;
-        
-        /* Active Sensing Detection (0xFE) */
-        if (byte == MIDI_STATUS_ACTIVE_SENSING) {
-            state->active_sensing_enabled = true;
-        }
         
         *message_complete = true;
         state->messages_parsed++;
@@ -156,7 +146,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                 /* Create SysEx message */
                 msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
                 msg->status = MIDI_STATUS_SYSEX_START;
-                msg->channel = 0;
                 msg->data.sysex.data = state->sysex_buffer;
                 msg->data.sysex.length = state->sysex_index;
                 
@@ -168,7 +157,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             return ESP_OK;
         }
         
-        /* === OTHER SYSTEM COMMON MESSAGES (0xF1-0xF6) === */
+        /* === SYSTEM COMMON MESSAGES (0xF1-0xF6) === */
         /* System Common messages clear running status (spec page 5) */
         if (midi_is_system_common_message(byte)) {
             state->in_sysex = false;  // Terminate SysEx if active
@@ -178,9 +167,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             
             msg->type = MIDI_MSG_TYPE_SYSTEM_COMMON;
             msg->status = byte;
-            msg->channel = 0;
-            msg->data1 = 0;
-            msg->data2 = 0;
             
             /* Single-byte System Common messages */
             if (state->expected_data_bytes == 0) {
@@ -198,19 +184,9 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             state->data_index = 0;
             state->expected_data_bytes = midi_get_data_byte_count(byte);
             
-            /* Determine message type */
-            uint8_t controller = 0;
-            if ((byte & MIDI_STATUS_TYPE_MASK) == MIDI_STATUS_CONTROL_CHANGE) {
-                /* Will determine if Channel Mode later based on controller# */
-                msg->type = MIDI_MSG_TYPE_CHANNEL_VOICE;
-            } else {
-                msg->type = MIDI_MSG_TYPE_CHANNEL_VOICE;
-            }
-            
+            msg->type = MIDI_MSG_TYPE_CHANNEL;
             msg->status = byte;
             msg->channel = byte & MIDI_CHANNEL_MASK;
-            msg->data1 = 0;
-            msg->data2 = 0;
             
             return ESP_OK;
         }
@@ -253,15 +229,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             /* Message complete - fill in structure */
             msg->status = state->running_status;
             msg->channel = state->running_status & MIDI_CHANNEL_MASK;
-            msg->data1 = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
-            msg->data2 = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
-            
-            /* Check if this is a Channel Mode message (CC 120-127) */
-            if ((state->running_status & MIDI_STATUS_TYPE_MASK) == MIDI_STATUS_CONTROL_CHANGE) {
-                if (msg->data1 >= MIDI_CC_ALL_SOUND_OFF && msg->data1 <= MIDI_CC_POLY_MODE_ON) {
-                    msg->type = MIDI_MSG_TYPE_CHANNEL_MODE;
-                }
-            }
+            msg->data.bytes[0] = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
+            msg->data.bytes[1] = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
             
             *message_complete = true;
             state->messages_parsed++;
@@ -272,27 +241,5 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
     }
     
     return ESP_OK;
-}
-
-/**
- * @brief Check for Active Sensing timeout
- * 
- * Per spec (page 32), if Active Sensing is detected, lack of any MIDI
- * data for >300ms should trigger "all notes off"
- */
-bool midi_parser_check_active_sensing_timeout(midi_parser_state_t *state,
-                                               uint32_t current_time_us) {
-    if (!state || !state->active_sensing_enabled) {
-        return false;
-    }
-    
-    uint32_t elapsed_ms = (current_time_us - state->last_message_time_us) / 1000;
-    
-    if (elapsed_ms > MIDI_ACTIVE_SENSING_TIMEOUT_MS) {
-        ESP_LOGW(TAG, "Active Sensing timeout detected (%lu ms)", elapsed_ms);
-        return true;
-    }
-    
-    return false;
 }
 

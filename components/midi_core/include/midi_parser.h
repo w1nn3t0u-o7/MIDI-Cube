@@ -33,10 +33,6 @@ typedef struct {
     uint16_t sysex_index;          /**< Current SysEx buffer position */
     uint16_t sysex_buffer_size;    /**< Size of SysEx buffer */
     
-    /* Active Sensing */
-    bool active_sensing_enabled;   /**< Active sensing detected */
-    uint32_t last_message_time_us; /**< Last message timestamp */
-    
     /* Statistics */
     uint32_t messages_parsed;      /**< Total messages parsed */
     uint32_t parse_errors;         /**< Parse error count */

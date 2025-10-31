@@ -207,8 +207,8 @@ esp_err_t midi_usb_send_midi1_message(const midi_message_t *msg, uint8_t cable_n
     
     // Pack MIDI bytes
     packet.data.midi1.midi_bytes[0] = msg->status;
-    packet.data.midi1.midi_bytes[1] = msg->data1;
-    packet.data.midi1.midi_bytes[2] = msg->data2;
+    packet.data.midi1.midi_bytes[1] = msg->data.bytes[0];
+    packet.data.midi1.midi_bytes[2] = msg->data.bytes[1];
     
     return midi_usb_send_packet(&packet);
 }

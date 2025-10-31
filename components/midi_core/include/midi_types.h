@@ -15,8 +15,7 @@
  * @brief MIDI Message Type Classification
  */
 typedef enum {
-    MIDI_MSG_TYPE_CHANNEL_VOICE,      /**< Channel Voice Message */
-    MIDI_MSG_TYPE_CHANNEL_MODE,       /**< Channel Mode Message */
+    MIDI_MSG_TYPE_CHANNEL,            /**< Channel Message */
     MIDI_MSG_TYPE_SYSTEM_COMMON,      /**< System Common Message */
     MIDI_MSG_TYPE_SYSTEM_REALTIME,    /**< System Real-Time Message */
     MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE,   /**< System Exclusive Message */
@@ -34,73 +33,81 @@ typedef struct {
     uint8_t status;                /**< Full status byte (including channel) */
     uint8_t channel;               /**< MIDI channel (0-15, representing 1-16) */
     
-    /* Type-Specific Data (union - only one active at a time) */
     union {
-        /* Note On/Off */
-        struct {
-            uint8_t note;          /**< Note number (0-127) */
-            uint8_t velocity;      /**< Velocity (0-127) */
-        } note;
-        
-        /* Control Change */
-        struct {
-            uint8_t controller;    /**< Controller number (0-119) */
-            uint8_t value;         /**< Controller value (0-127) */
-        } control_change;
-        
-        /* Program Change */
-        struct {
-            uint8_t program;       /**< Program number (0-127) */
-        } program_change;
-        
-        /* Pitch Bend */
-        struct {
-            uint16_t value;        /**< 14-bit value (0-16383, center=8192) */
-        } pitch_bend;
-        
-        /* Polyphonic Pressure (Aftertouch) */
-        struct {
-            uint8_t note;          /**< Note number (0-127) */
-            uint8_t pressure;      /**< Pressure value (0-127) */
-        } poly_pressure;
-        
-        /* Channel Pressure */
-        struct {
-            uint8_t pressure;      /**< Pressure value (0-127) */
-        } channel_pressure;
-        
+        uint8_t bytes[2];            /**< Data bytes (up to 2 for most messages) */
+
         /* System Exclusive */
         struct {
             uint8_t manufacturer_id; /**< Manufacturer ID (1 or 3 bytes(NOT SUPPORTED)) */
             uint8_t *data;         /**< Pointer to SysEx data */
-            uint16_t length;       /**< Length of SysEx data */
+        uint16_t length;       /**< Length of SysEx data */
         } sysex;
+    } data;
+    // /* Type-Specific Data (union - only one active at a time) */
+    // union {
+    //     /* Note On/Off */
+    //     struct {
+    //         uint8_t note;          /**< Note number (0-127) */
+    //         uint8_t velocity;      /**< Velocity (0-127) */
+    //     } note;
         
-        /* System Common */
-        struct {
-            union {
-                /* MTC Quarter Frame */
-                struct {
-                    uint8_t piece;         /**< MTC data piece (0-7) */
-                    uint8_t value;         /**< 4-bit value */
-                } mtc;
+    //     /* Control Change */
+    //     struct {
+    //         uint8_t controller;    /**< Controller number (0-119) */
+    //         uint8_t value;         /**< Controller value (0-127) */
+    //     } control_change;
+        
+    //     /* Program Change */
+    //     struct {
+    //         uint8_t program;       /**< Program number (0-127) */
+    //     } program_change;
+        
+    //     /* Pitch Bend */
+    //     struct {
+    //         uint16_t value;        /**< 14-bit value (0-16383, center=8192) */
+    //     } pitch_bend;
+        
+    //     /* Polyphonic Pressure (Aftertouch) */
+    //     struct {
+    //         uint8_t note;          /**< Note number (0-127) */
+    //         uint8_t pressure;      /**< Pressure value (0-127) */
+    //     } poly_pressure;
+        
+    //     /* Channel Pressure */
+    //     struct {
+    //         uint8_t pressure;      /**< Pressure value (0-127) */
+    //     } channel_pressure;
 
-                /* Song Position Pointer */
-                uint16_t position;     /**< 14-bit position (0-16383) */
+    //     /* Channel Mode */
+    //     struct {
+    //         uint8_t controller;    /**< Controller number (120-127) */
+    //         uint8_t value;         /**< Controller value (0-127) */
+    //     } channel_mode;
+        
+    //     /* System Exclusive */
+    //     struct {
+    //         uint8_t manufacturer_id; /**< Manufacturer ID (1 or 3 bytes(NOT SUPPORTED)) */
+    //         uint8_t *data;         /**< Pointer to SysEx data */
+    //         uint16_t length;       /**< Length of SysEx data */
+    //     } sysex;
+        
+    //     /* System Common */
+    //     struct {
+    //         union {
+    //             /* MTC Quarter Frame */
+    //             struct {
+    //                 uint8_t piece;         /**< MTC data piece (0-7) */
+    //                 uint8_t value;         /**< 4-bit value */
+    //             } mtc;
 
-                /* Song Select */
-                uint8_t song;          /**< Song number (0-127) */
-            } data;
-        } system_common;
-        
-        /* Raw bytes (fallback for unknown/unhandled messages) */
-        struct {
-            uint8_t data1;         /**< First data byte */
-            uint8_t data2;         /**< Second data byte */
-            uint8_t length;        /**< Message length (1-3 bytes) */
-        } raw;
-        
-    } data;  /**< Type-specific message data */
+    //             /* Song Position Pointer */
+    //             uint16_t position;     /**< 14-bit position (0-16383) */
+
+    //             /* Song Select */
+    //             uint8_t song;          /**< Song number (0-127) */
+    //         } data;
+    //     } system_common;
+    // } data;  /**< Type-specific message data */
 } midi_message_t;
 
 /* OPTIONAL STRUCTS UNCOMMENT IF NEEDED */

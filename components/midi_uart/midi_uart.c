@@ -105,9 +105,6 @@ static void midi_uart_rx_task(void *arg) {
                                 if (complete) {
                                     state->stats.messages_received++;
                                     
-                                    // Add timestamp
-                                    msg.timestamp_us = esp_timer_get_time();
-                                    
                                     // Call user callback
                                     if (state->rx_callback) {
                                         state->rx_callback(&msg, state->rx_callback_ctx);
@@ -115,7 +112,7 @@ static void midi_uart_rx_task(void *arg) {
                                     
                                     // Debug logging (verbose)
                                     ESP_LOGD(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
-                                             msg.status, msg.channel, msg.data1, msg.data2);
+                                             msg.status, msg.channel, msg.data.bytes[0], msg.data.bytes[1]);
                                 }
                             }
                         }
