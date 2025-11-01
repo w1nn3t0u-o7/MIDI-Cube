@@ -63,7 +63,7 @@ void uart_rx_callback(const midi_message_t *msg, void *ctx) {
         .format = MIDI_FORMAT_1_0,
         .data.midi1 = *msg
     };
-    
+
     // Send to router (non-blocking to avoid UART ISR delays)
     if (xQueueSend(router_input_queue, &packet, 0) != pdTRUE) {
         // Queue full - drop packet (log in debug mode)

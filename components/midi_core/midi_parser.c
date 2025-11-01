@@ -116,6 +116,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
      * affecting running status or current message assembly. 
      * Spec: Page 30, "System Real Time Messages" */
     if (midi_is_realtime_message(byte)) {
+        memset(msg, 0, sizeof(midi_message_t));
         msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
         msg->status = byte;
         
@@ -144,6 +145,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                 state->in_sysex = false;
                 
                 /* Create SysEx message */
+                memset(msg, 0, sizeof(midi_message_t));
                 msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
                 msg->status = MIDI_STATUS_SYSEX_START;
                 msg->data.sysex.data = state->sysex_buffer;
@@ -165,6 +167,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             state->data_index = 0;
             state->expected_data_bytes = midi_get_data_byte_count(byte);
             
+            memset(msg, 0, sizeof(midi_message_t));
             msg->type = MIDI_MSG_TYPE_SYSTEM_COMMON;
             msg->status = byte;
             
@@ -226,6 +229,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         
         /* Check if message is complete */
         if (state->data_index >= state->expected_data_bytes) {
+            
+            memset(msg, 0, sizeof(midi_message_t));
             /* Message complete - fill in structure */
             msg->status = state->running_status;
             msg->channel = state->running_status & MIDI_CHANNEL_MASK;
