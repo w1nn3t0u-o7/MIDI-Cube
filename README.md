@@ -8,6 +8,8 @@
 
 ## midi_uart
 
+- add optocoupler to eliminate noise on rx
+
 
 ---
 # Perplexity additions

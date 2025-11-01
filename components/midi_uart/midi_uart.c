@@ -115,7 +115,7 @@ static void midi_uart_rx_task(void *arg) {
     }
     ESP_LOGI(TAG, "RX callback: %p", state->rx_callback);  // ← Check if NULL
     while (1) {
-        // Wait for UART event (with timeout)
+        // Wait for UART event
         if (xQueueReceive(uart_queue, &event, portMAX_DELAY) == pdTRUE) {
             ESP_LOGI(TAG, "Event: type=%d, size=%d", event.type, event.size);
             switch (event.type) {
@@ -146,14 +146,13 @@ static void midi_uart_rx_task(void *arg) {
                                 
                                 // If message complete, call callback
                                 if (complete) {
+                                    // Debug logging (verbose)
+                                    ESP_LOGI(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
+                                             msg.status, msg.channel, msg.data.bytes[0], msg.data.bytes[1]);
                                     // Call user callback
                                     if (state->rx_callback) {
                                         state->rx_callback(&msg, state->rx_callback_ctx);
                                     }
-                                    
-                                    // Debug logging (verbose)
-                                    ESP_LOGD(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
-                                             msg.status, msg.channel, msg.data.bytes[0], msg.data.bytes[1]);
                                 }
                             }
                         }
@@ -194,6 +193,7 @@ static void midi_uart_rx_task(void *arg) {
             }
         }
         // Timeout - continue loop (allows clean task deletion if needed)
+        
     }
 }
 

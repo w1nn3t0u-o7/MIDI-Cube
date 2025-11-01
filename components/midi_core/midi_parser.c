@@ -194,7 +194,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         /* Undefined status bytes should be ignored (spec page 6) */
         ESP_LOGW(TAG, "Undefined status byte: 0x%02X", byte);
         state->parse_errors++;
-        return ESP_OK;
+        return ESP_ERR_INVALID_STATE;
     }
     
     /* === DATA BYTES (0x00-0x7F) === */
@@ -216,7 +216,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         /* Data byte without valid running status - ignore (spec page 6) */
         if (state->running_status == 0 && state->expected_data_bytes == 0) {
             ESP_LOGD(TAG, "Data byte 0x%02X ignored (no running status)", byte);
-            return ESP_OK;
+            return ESP_ERR_INVALID_STATE;
         }
         
         /* Collect data bytes */
@@ -239,7 +239,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             return ESP_OK;
         }
     }
-    
+
     return ESP_OK;
 }
 
