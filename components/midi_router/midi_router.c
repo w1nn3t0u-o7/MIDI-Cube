@@ -52,6 +52,11 @@ static const char *transport_names[] = {
  * Called by UART driver when MIDI message received
  */
 void uart_rx_callback(const midi_message_t *msg, void *ctx) {
+    ESP_LOGI(TAG, "UART RX callback: Status=0x%02X, Ch=%d", msg->status, msg->channel);
+    if (!router_input_queue) {
+        ESP_LOGW(TAG, "Router input queue not initialized");
+        return;
+    }
     // Create router packet
     midi_router_packet_t packet = {
         .source = MIDI_TRANSPORT_UART,

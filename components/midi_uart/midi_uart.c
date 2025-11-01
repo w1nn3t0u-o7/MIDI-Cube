@@ -13,11 +13,7 @@
 
 static const char *TAG = "midi_uart";
 
-static midi_uart_state_t uart_state = {
-    .is_initialized = false,
-    .rx_callback = uart_rx_callback,
-    .rx_callback_ctx = NULL,
-};
+static midi_uart_state_t uart_state = {0};
 
 /**
  * @brief Configure UART hardware for MIDI
@@ -117,20 +113,19 @@ static void midi_uart_rx_task(void *arg) {
         vTaskDelete(NULL);
         return;
     }
-    
+    ESP_LOGI(TAG, "RX callback: %p", state->rx_callback);  // ← Check if NULL
     while (1) {
         // Wait for UART event (with timeout)
-        if (xQueueReceive(uart_queue, &event, pdMS_TO_TICKS(100)) == pdTRUE) {
-            
+        if (xQueueReceive(uart_queue, &event, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, "Event: type=%d, size=%d", event.type, event.size);
             switch (event.type) {
                 case UART_DATA:
                     // Data available - read it
                     {
                         uint8_t data[128];
                         int len = uart_read_bytes(MIDI_UART_PORT, data, 
-                                                  event.size, 
-                                                  pdMS_TO_TICKS(10));
-                        
+                                                  event.size, 0);
+                        ESP_LOGI(TAG, "Read %d bytes: ", len);
                         if (len > 0) {
                             // Process each byte
                             for (int i = 0; i < len; i++) {
@@ -207,15 +202,14 @@ static void midi_uart_rx_task(void *arg) {
  */
 esp_err_t midi_uart_init(void) {
 
+    uart_state.is_initialized = false;
+
     if (uart_state.is_initialized) {
         ESP_LOGW(TAG, "MIDI UART already initialized");
         return ESP_ERR_INVALID_STATE;
     }
     
     ESP_LOGI(TAG, "Initializing MIDI UART driver");
-    
-    // Clear state
-    memset(&uart_state, 0, sizeof(uart_state));
     
     // Configure hardware
     esp_err_t err = midi_uart_configure(&uart_state.uart_event_queue);
@@ -232,6 +226,9 @@ esp_err_t midi_uart_init(void) {
         midi_uart_deconfigure(&uart_state.uart_event_queue);
         return err;
     }
+
+    uart_state.rx_callback = uart_rx_callback;
+    uart_state.rx_callback_ctx = NULL;
     
     // Create RX task
     BaseType_t task_created = xTaskCreatePinnedToCore(

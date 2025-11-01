@@ -37,7 +37,7 @@
 static const char *TAG = "main";
 
 // Enable/disable test mode
-#define ENABLE_TEST_MODE  1
+#define ENABLE_TEST_MODE  0
 
 //=============================================================================
 // Global Configuration
