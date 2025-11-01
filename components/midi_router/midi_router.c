@@ -9,8 +9,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-//#include "nvs_flash.h"
-//#include "nvs.h"
 #include <string.h>
 
 static const char *TAG = "midi_router";
@@ -19,6 +17,9 @@ static const char *TAG = "midi_router";
 #define ROUTER_TASK_STACK_SIZE 4096
 #define ROUTER_TASK_PRIORITY 10
 #define ROUTER_TASK_CORE 1
+
+// Router input queue (shared by all transports)
+QueueHandle_t router_input_queue = NULL;
 
 /**
  * @brief Router state
@@ -35,7 +36,7 @@ typedef struct {
     TaskHandle_t router_task_handle;
     
     // Transport callbacks (registered by transport layers)
-    esp_err_t (*transport_tx_callbacks[MIDI_TRANSPORT_COUNT])(const midi_packet_t *);
+    esp_err_t (*transport_tx_callbacks[MIDI_TRANSPORT_COUNT])(const midi_router_packet_t *);
     
 } midi_router_state_t;
 
@@ -47,9 +48,28 @@ static const char *transport_names[] = {
 };
 
 /**
+ * @brief UART RX Callback
+ * Called by UART driver when MIDI message received
+ */
+void uart_rx_callback(const midi_message_t *msg, void *ctx) {
+    // Create router packet
+    midi_router_packet_t packet = {
+        .source = MIDI_TRANSPORT_UART,
+        .format = MIDI_FORMAT_1_0,
+        .data.midi1 = *msg
+    };
+    
+    // Send to router (non-blocking to avoid UART ISR delays)
+    if (xQueueSend(router_input_queue, &packet, 0) != pdTRUE) {
+        // Queue full - drop packet (log in debug mode)
+        ESP_LOGD(TAG, "Router queue full, UART packet dropped");
+    }
+}
+
+/**
  * @brief Check if message passes filter
  */
-static bool midi_router_check_filter(const midi_packet_t *packet, 
+static bool midi_router_check_filter(const midi_router_packet_t *packet, 
                                       const midi_filter_t *filter) {
     if (!filter->enabled) {
         return true;  // Filter disabled, pass all
@@ -85,7 +105,7 @@ static bool midi_router_check_filter(const midi_packet_t *packet,
 /**
  * @brief Translate packet if needed
  */
-static esp_err_t midi_router_translate(midi_packet_t *packet, 
+static esp_err_t midi_router_translate(midi_router_packet_t *packet, 
                                         bool dest_wants_ump) {
     if (!g_router_state.config.auto_translate) {
         return ESP_OK;  // Translation disabled
@@ -122,7 +142,7 @@ static esp_err_t midi_router_translate(midi_packet_t *packet,
  * @brief Router task - processes incoming packets
  */
 static void midi_router_task(void *arg) {
-    midi_packet_t packet;
+    midi_router_packet_t packet;
     
     ESP_LOGI(TAG, "Router task started on core %d", xPortGetCoreID());
     
@@ -160,7 +180,7 @@ static void midi_router_task(void *arg) {
             }
             
             // Translate if destination requires different format
-            midi_packet_t out_packet = packet;
+            midi_router_packet_t out_packet = packet;
             bool dest_wants_ump = (dest == MIDI_TRANSPORT_ETHERNET || 
                                    dest == MIDI_TRANSPORT_WIFI ||
                                    dest == MIDI_TRANSPORT_USB);  // USB can do both
@@ -216,7 +236,7 @@ esp_err_t midi_router_init(const midi_router_config_t *config) {
     
     // Create packet queue
     g_router_state.packet_queue = xQueueCreate(ROUTER_QUEUE_SIZE, 
-                                                sizeof(midi_packet_t));
+                                                sizeof(midi_router_packet_t));
     if (!g_router_state.packet_queue) {
         ESP_LOGE(TAG, "Failed to create packet queue");
         return ESP_FAIL;
@@ -259,7 +279,7 @@ esp_err_t midi_router_init(const midi_router_config_t *config) {
 /**
  * @brief Send packet to router
  */
-esp_err_t midi_router_send(const midi_packet_t *packet) {
+esp_err_t midi_router_send(const midi_router_packet_t *packet) {
     if (!g_router_state.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -276,7 +296,7 @@ esp_err_t midi_router_send(const midi_packet_t *packet) {
  * @brief Register transport TX callback
  */
 esp_err_t midi_router_register_transport_tx(midi_transport_t transport,
-                                             esp_err_t (*tx_callback)(const midi_packet_t *)) {
+                                             esp_err_t (*tx_callback)(const midi_router_packet_t *)) {
     if (transport >= MIDI_TRANSPORT_COUNT) {
         return ESP_ERR_INVALID_ARG;
     }

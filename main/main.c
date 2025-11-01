@@ -37,14 +37,11 @@
 static const char *TAG = "main";
 
 // Enable/disable test mode
-#define ENABLE_TEST_MODE  0
+#define ENABLE_TEST_MODE  1
 
 //=============================================================================
 // Global Configuration
 //=============================================================================
-
-// Router input queue (shared by all transports)
-QueueHandle_t g_router_input_queue = NULL;
 
 // Transport enable flags (set via Kconfig or runtime)
 #define ENABLE_UART      1
@@ -55,26 +52,6 @@ QueueHandle_t g_router_input_queue = NULL;
 //=============================================================================
 // Transport RX Callbacks - Feed Router Queue
 //=============================================================================
-
-/**
- * @brief UART RX Callback
- * Called by UART driver when MIDI message received
- */
-static void uart_rx_callback(const midi_message_t *msg, void *ctx) {
-    // Create router packet
-    midi_router_packet_t packet = {
-        .source = MIDI_TRANSPORT_UART,
-        .format = MIDI_FORMAT_1_0,
-        .timestamp_us = esp_timer_get_time(),
-        .data.midi1 = *msg
-    };
-    
-    // Send to router (non-blocking to avoid UART ISR delays)
-    if (xQueueSend(g_router_input_queue, &packet, 0) != pdTRUE) {
-        // Queue full - drop packet (log in debug mode)
-        ESP_LOGD(TAG, "Router queue full, UART packet dropped");
-    }
-}
 
 /**
  * @brief USB RX Callback
@@ -128,29 +105,29 @@ static void uart_rx_callback(const midi_message_t *msg, void *ctx) {
  * Receives packets from all transports and routes them based on
  * routing matrix configuration.
  */
-static void midi_router_task(void *pvParameters) {
-    midi_router_packet_t packet;
+// static void midi_router_task(void *pvParameters) {
+//     midi_router_packet_t packet;
     
-    ESP_LOGI(TAG, "Router task started on core %d", xPortGetCoreID());
+//     ESP_LOGI(TAG, "Router task started on core %d", xPortGetCoreID());
     
-    while (1) {
-        // Wait for incoming packet from any transport
-        if (xQueueReceive(g_router_input_queue, &packet, portMAX_DELAY) == pdTRUE) {
+//     while (1) {
+//         // Wait for incoming packet from any transport
+//         if (xQueueReceive(router_input_queue, &packet, portMAX_DELAY) == pdTRUE) {
             
-            // Route packet via router
-            // Router handles:
-            // - Routing matrix lookup
-            // - Protocol translation (MIDI 1.0 ↔ MIDI 2.0)
-            // - Filtering
-            // - Output to destination transport(s)
-            esp_err_t err = midi_router_route_packet(&packet);
+//             // Route packet via router
+//             // Router handles:
+//             // - Routing matrix lookup
+//             // - Protocol translation (MIDI 1.0 ↔ MIDI 2.0)
+//             // - Filtering
+//             // - Output to destination transport(s)
+//             esp_err_t err = midi_router_route_packet(&packet);
             
-            if (err != ESP_OK) {
-                ESP_LOGW(TAG, "Router error: %s", esp_err_to_name(err));
-            }
-        }
-    }
-}
+//             if (err != ESP_OK) {
+//                 ESP_LOGW(TAG, "Router error: %s", esp_err_to_name(err));
+//             }
+//         }
+//     }
+// }
 
 //=============================================================================
 // Statistics Task - Core 1, Priority 3
@@ -159,29 +136,29 @@ static void midi_router_task(void *pvParameters) {
 /**
  * @brief Statistics and Monitoring Task
  */
-static void stats_task(void *pvParameters) {
-    ESP_LOGI(TAG, "Statistics task started on core %d", xPortGetCoreID());
+// static void stats_task(void *pvParameters) {
+//     ESP_LOGI(TAG, "Statistics task started on core %d", xPortGetCoreID());
     
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(5000));  // Every 5 seconds
+//     while (1) {
+//         vTaskDelay(pdMS_TO_TICKS(5000));  // Every 5 seconds
         
-        // Get router stats
-        midi_router_stats_t stats;
-        midi_router_get_stats(&stats);
+//         // Get router stats
+//         midi_router_stats_t stats;
+//         midi_router_get_stats(&stats);
         
-        // Log activity
-        ESP_LOGI(TAG, "=== MIDI Activity (last 5s) ===");
-        ESP_LOGI(TAG, "  UART:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_UART]);
-        ESP_LOGI(TAG, "  USB:      %lu packets", stats.packets_routed[MIDI_TRANSPORT_USB]);
-        ESP_LOGI(TAG, "  WiFi:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_WIFI]);
-        ESP_LOGI(TAG, "  Ethernet: %lu packets", stats.packets_routed[MIDI_TRANSPORT_ETHERNET]);
-        ESP_LOGI(TAG, "  Dropped:  %lu packets", stats.packets_dropped);
+//         // Log activity
+//         ESP_LOGI(TAG, "=== MIDI Activity (last 5s) ===");
+//         ESP_LOGI(TAG, "  UART:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_UART]);
+//         ESP_LOGI(TAG, "  USB:      %lu packets", stats.packets_routed[MIDI_TRANSPORT_USB]);
+//         ESP_LOGI(TAG, "  WiFi:     %lu packets", stats.packets_routed[MIDI_TRANSPORT_WIFI]);
+//         ESP_LOGI(TAG, "  Ethernet: %lu packets", stats.packets_routed[MIDI_TRANSPORT_ETHERNET]);
+//         ESP_LOGI(TAG, "  Dropped:  %lu packets", stats.packets_dropped);
         
-        // Check queue depth
-        UBaseType_t queue_waiting = uxQueueMessagesWaiting(g_router_input_queue);
-        ESP_LOGI(TAG, "  Queue depth: %u / 64", queue_waiting);
-    }
-}
+//         // Check queue depth
+//         UBaseType_t queue_waiting = uxQueueMessagesWaiting(g_router_input_queue);
+//         ESP_LOGI(TAG, "  Queue depth: %u / 64", queue_waiting);
+//     }
+// }
 
 //=============================================================================
 // Initialization Functions
@@ -203,54 +180,54 @@ static void stats_task(void *pvParameters) {
 /**
  * @brief Initialize MIDI Router
  */
-static void init_router(void) {
-    // Create router input queue (64 packets deep)
-    g_router_input_queue = xQueueCreate(64, sizeof(midi_router_packet_t));
-    if (!g_router_input_queue) {
-        ESP_LOGE(TAG, "Failed to create router queue!");
-        esp_restart();
-    }
+// static void init_router(void) {
+//     // Create router input queue (64 packets deep)
+//     g_router_input_queue = xQueueCreate(64, sizeof(midi_router_packet_t));
+//     if (!g_router_input_queue) {
+//         ESP_LOGE(TAG, "Failed to create router queue!");
+//         esp_restart();
+//     }
     
-    // Configure router
-    midi_router_config_t router_cfg = {
-        .auto_translate = true,      // Auto MIDI 1.0 ↔ 2.0 translation
-        .merge_inputs = false,       // Use routing matrix
-        .default_group = 0,          // Default UMP group
-        .enable_filtering = true     // Enable message filtering
-    };
+//     // Configure router
+//     midi_router_config_t router_cfg = {
+//         .auto_translate = true,      // Auto MIDI 1.0 ↔ 2.0 translation
+//         .merge_inputs = false,       // Use routing matrix
+//         .default_group = 0,          // Default UMP group
+//         .enable_filtering = true     // Enable message filtering
+//     };
     
-    // Set default routing matrix (all inputs → all outputs except loopback)
-    for (int src = 0; src < MIDI_TRANSPORT_COUNT; src++) {
-        for (int dest = 0; dest < MIDI_TRANSPORT_COUNT; dest++) {
-            router_cfg.routing_matrix[src][dest] = (src != dest);
-        }
-    }
+//     // Set default routing matrix (all inputs → all outputs except loopback)
+//     for (int src = 0; src < MIDI_TRANSPORT_COUNT; src++) {
+//         for (int dest = 0; dest < MIDI_TRANSPORT_COUNT; dest++) {
+//             router_cfg.routing_matrix[src][dest] = (src != dest);
+//         }
+//     }
     
-    ESP_ERROR_CHECK(midi_router_init(&router_cfg));
-    ESP_LOGI(TAG, "MIDI Router initialized");
-}
+//     ESP_ERROR_CHECK(midi_router_init(&router_cfg));
+//     ESP_LOGI(TAG, "MIDI Router initialized");
+// }
 
 /**
  * @brief Initialize UART Transport
  */
-static void init_uart(void) {
-#if ENABLE_UART
-    midi_uart_config_t uart_cfg = {
-        .uart_num = UART_NUM_1,
-        .tx_pin = CONFIG_MIDI_UART_TX_GPIO,
-        .rx_pin = CONFIG_MIDI_UART_RX_GPIO,
-        .baud_rate = 31250,
-        .enable_tx = true,
-        .enable_rx = true,
-        .rx_callback = uart_rx_callback,
-        .rx_callback_ctx = NULL
-    };
+// static void init_uart(void) {
+// #if ENABLE_UART
+//     midi_uart_config_t uart_cfg = {
+//         .uart_num = UART_NUM_1,
+//         .tx_pin = CONFIG_MIDI_UART_TX_GPIO,
+//         .rx_pin = CONFIG_MIDI_UART_RX_GPIO,
+//         .baud_rate = 31250,
+//         .enable_tx = true,
+//         .enable_rx = true,
+//         .rx_callback = uart_rx_callback,
+//         .rx_callback_ctx = NULL
+//     };
     
-    ESP_ERROR_CHECK(midi_uart_init(&uart_cfg));
-    ESP_LOGI(TAG, "UART MIDI initialized (TX: GPIO%d, RX: GPIO%d)", 
-             uart_cfg.tx_pin, uart_cfg.rx_pin);
-#endif
-}
+//     ESP_ERROR_CHECK(midi_uart_init(&uart_cfg));
+//     ESP_LOGI(TAG, "UART MIDI initialized (TX: GPIO%d, RX: GPIO%d)", 
+//              uart_cfg.tx_pin, uart_cfg.rx_pin);
+// #endif
+// }
 
 /**
  * @brief Initialize USB Transport
@@ -352,42 +329,42 @@ void app_main(void) {
     //=========================================================================
     // 1. System Initialization
     //=========================================================================
-    init_nvs();
-    init_router();
+    //init_nvs();
+    //init_router();
     
     //=========================================================================
     // 2. Transport Initialization
     //=========================================================================
-    init_uart();
-    init_usb();
-    init_wifi();
-    init_ethernet();
+    midi_uart_init();
+    //init_usb();
+    //init_wifi();
+    //init_ethernet();
     
     //=========================================================================
     // 3. Create FreeRTOS Tasks
     //=========================================================================
     
     // Core 0: MIDI Router (high priority)
-    xTaskCreatePinnedToCore(
-        midi_router_task,
-        "midi_router",
-        8192,                    // Stack size
-        NULL,
-        10,                      // Priority (high)
-        NULL,
-        0                        // Core 0 (protocol core)
-    );
+    // xTaskCreatePinnedToCore(
+    //     midi_router_task,
+    //     "midi_router",
+    //     8192,                    // Stack size
+    //     NULL,
+    //     10,                      // Priority (high)
+    //     NULL,
+    //     0                        // Core 0 (protocol core)
+    // );
     
     // Core 1: Statistics Task (low priority)
-    xTaskCreatePinnedToCore(
-        stats_task,
-        "stats",
-        3072,
-        NULL,
-        3,                       // Priority (low)
-        NULL,
-        1                        // Core 1
-    );
+    // xTaskCreatePinnedToCore(
+    //     stats_task,
+    //     "stats",
+    //     3072,
+    //     NULL,
+    //     3,                       // Priority (low)
+    //     NULL,
+    //     1                        // Core 1
+    // );
     
     ESP_LOGI(TAG, "");
     ESP_LOGI(TAG, "========================================");

@@ -30,12 +30,17 @@
  * @brief Transport identifiers
  */
 typedef enum {
-    MIDI_TRANSPORT_UART = 0,  /**< UART/DIN-5 (MIDI 1.0) */
+    MIDI_TRANSPORT_UART,  /**< UART/DIN-5 (MIDI 1.0) */
     MIDI_TRANSPORT_USB,       /**< USB (MIDI 1.0/2.0) */
     MIDI_TRANSPORT_ETHERNET,  /**< Ethernet (MIDI 2.0) */
     MIDI_TRANSPORT_WIFI,      /**< WiFi (MIDI 2.0) */
     MIDI_TRANSPORT_COUNT      /**< Number of transports */
 } midi_transport_t;
+
+typedef enum {
+    MIDI_FORMAT_1_0,  /**< MIDI 1.0 format */
+    MIDI_FORMAT_2_0   /**< MIDI 2.0 format */
+} midi_format_t;
 
 /**
  * @brief MIDI packet format (unified internal format)
@@ -44,13 +49,12 @@ typedef struct {
     midi_transport_t source;     /**< Source transport */
     midi_transport_t destination; /**< Destination (0xFF = broadcast) */
     uint8_t format;               /**< 0=MIDI1.0, 1=UMP */
-    uint32_t timestamp_us;        /**< Arrival timestamp */
     
     union {
         midi_message_t midi1;     /**< MIDI 1.0 message */
         ump_packet_t ump;         /**< UMP packet */
     } data;
-} midi_packet_t;
+} midi_router_packet_t;
 
 /**
  * @brief Message filter configuration
@@ -91,6 +95,8 @@ typedef struct {
     uint32_t routing_errors;
 } midi_router_stats_t;
 
+void uart_rx_callback(const midi_message_t *msg, void *ctx);
+
 /**
  * @brief Initialize MIDI router
  * 
@@ -118,7 +124,7 @@ esp_err_t midi_router_deinit(void);
  * @param packet MIDI packet to route
  * @return ESP_OK on success, ESP_ERR_NO_MEM if buffer full
  */
-esp_err_t midi_router_send(const midi_packet_t *packet);
+esp_err_t midi_router_send(const midi_router_packet_t *packet);
 
 /**
  * @brief Set routing matrix entry
