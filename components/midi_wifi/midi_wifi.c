@@ -180,7 +180,7 @@ static esp_err_t mdns_init_service(void) {
     
     // Set hostname
     char hostname[32];
-    snprintf(hostname, sizeof(hostname), "midi-cube-%02x%02x", 
+    snprintf(hostname, sizeof(hostname), "midi-cube-%02lu%02lu", 
              esp_random() & 0xFF, (esp_random() >> 8) & 0xFF);
     mdns_hostname_set(hostname);
     

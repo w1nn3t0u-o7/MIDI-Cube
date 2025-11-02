@@ -73,7 +73,7 @@ esp_err_t midi_wifi_start_discovery(uint32_t scan_duration_ms) {
             } else if (strcmp(txt->key, "retx") == 0) {
                 dev->supports_retransmit = (txt->value[0] == '1');
             }
-            txt = txt->next;
+            //txt = txt->next;
         }
         
         ESP_LOGI(TAG, "Discovered: %s at %s:%d (FEC:%d, Retx:%d)",

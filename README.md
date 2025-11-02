@@ -1,5 +1,7 @@
 # TODO
 
+- STYLE THE CODE!!!!!
+
 ## midi_core
 
 - Add Active Sensing support
@@ -10,6 +12,9 @@
 
 - add optocoupler to eliminate noise on rx
 
+## midi_wifi
+
+- add wifi provisioning(avoid hardcoding wifi credentials)
 
 ---
 # Perplexity additions
