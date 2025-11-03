@@ -87,11 +87,24 @@ typedef struct {
 
     // UART event queue handle
     QueueHandle_t uart_event_queue;
-    
-} midi_uart_state_t;
 
+} midi_uart_driver_t;
+
+/**
+ * @brief Configure UART hardware for MIDI
+ * 
+ * MIDI 1.0 Electrical Specification:
+ * - 31,250 baud (312.5 × 100)
+ * - 8 data bits
+ * - No parity
+ * - 1 stop bit
+ * - Asynchronous (no clock)
+ */
 esp_err_t midi_uart_configure(QueueHandle_t *uart_event_queue);
 
+/**
+ * @brief Deconfigure UART hardware
+ */
 esp_err_t midi_uart_deconfigure(QueueHandle_t *uart_event_queue);
 
 /**

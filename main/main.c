@@ -335,7 +335,7 @@ void app_main(void) {
     //=========================================================================
     // 2. Transport Initialization
     //=========================================================================
-    //midi_wifi_init();
+    midi_wifi_init();
     midi_uart_init();
     //init_usb();
     //init_ethernet();

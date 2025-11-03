@@ -7,6 +7,8 @@
 - Add Active Sensing support
 - Add more robust System Exclusive support 
 - Add trans more translation cases (Right now only note on supported)
+- add length tu midi message type for easier serializing
+- add reserved values for future proof
 
 ## midi_uart
 

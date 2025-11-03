@@ -13,18 +13,8 @@
 
 static const char *TAG = "midi_uart";
 
-static midi_uart_state_t uart_state = {0};
+static midi_uart_driver_t uart_driver = {0};
 
-/**
- * @brief Configure UART hardware for MIDI
- * 
- * MIDI 1.0 Electrical Specification:
- * - 31,250 baud (312.5 × 100)
- * - 8 data bits
- * - No parity
- * - 1 stop bit
- * - Asynchronous (no clock)
- */
 esp_err_t midi_uart_configure(QueueHandle_t *uart_event_queue) {
     ESP_LOGI(TAG, "Configuring UART%d for MIDI 1.0", MIDI_UART_PORT);
     ESP_LOGI(TAG, "  Baud rate: %d", MIDI_UART_BAUD_RATE);
@@ -83,9 +73,6 @@ esp_err_t midi_uart_configure(QueueHandle_t *uart_event_queue) {
     return ESP_OK;
 }
 
-/**
- * @brief Deconfigure UART hardware
- */
 esp_err_t midi_uart_deconfigure(QueueHandle_t *uart_event_queue) {
     esp_err_t err = uart_driver_delete(MIDI_UART_PORT);
     *uart_event_queue = NULL;  // Clear handle
@@ -99,12 +86,12 @@ esp_err_t midi_uart_deconfigure(QueueHandle_t *uart_event_queue) {
  * calls callback on complete messages
  */
 static void midi_uart_rx_task(void *arg) {
-    midi_uart_state_t *state = (midi_uart_state_t *)arg;
+    midi_uart_driver_t *driver = (midi_uart_driver_t *)arg;
     uint8_t rx_byte;
     midi_message_t msg;
     bool complete;
     uart_event_t event;
-    QueueHandle_t uart_queue = state->uart_event_queue;
+    QueueHandle_t uart_queue = driver->uart_event_queue;
     
     ESP_LOGI(TAG, "MIDI UART RX task started on core %d", xPortGetCoreID());
     
@@ -113,7 +100,7 @@ static void midi_uart_rx_task(void *arg) {
         vTaskDelete(NULL);
         return;
     }
-    ESP_LOGI(TAG, "RX callback: %p", state->rx_callback);  // ← Check if NULL
+    ESP_LOGI(TAG, "RX callback: %p", driver->rx_callback);  // ← Check if NULL
     while (1) {
         // Wait for UART event
         if (xQueueReceive(uart_queue, &event, portMAX_DELAY) == pdTRUE) {
@@ -133,7 +120,7 @@ static void midi_uart_rx_task(void *arg) {
                                 
                                 // Feed byte to MIDI parser
                                 esp_err_t err = midi_parser_parse_byte(
-                                    &state->parser,
+                                    &driver->parser,
                                     rx_byte,
                                     &msg,
                                     &complete
@@ -150,8 +137,8 @@ static void midi_uart_rx_task(void *arg) {
                                     ESP_LOGI(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
                                              msg.status, msg.channel, msg.data.bytes[0], msg.data.bytes[1]);
                                     // Call user callback
-                                    if (state->rx_callback) {
-                                        state->rx_callback(&msg, state->rx_callback_ctx);
+                                    if (driver->rx_callback) {
+                                        driver->rx_callback(&msg, driver->rx_callback_ctx);
                                     }
                                 }
                             }
@@ -202,9 +189,9 @@ static void midi_uart_rx_task(void *arg) {
  */
 esp_err_t midi_uart_init(void) {
 
-    uart_state.is_initialized = false;
+    uart_driver.is_initialized = false;
 
-    if (uart_state.is_initialized) {
+    if (uart_driver.is_initialized) {
         ESP_LOGW(TAG, "MIDI UART already initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -212,42 +199,42 @@ esp_err_t midi_uart_init(void) {
     ESP_LOGI(TAG, "Initializing MIDI UART driver");
     
     // Configure hardware
-    esp_err_t err = midi_uart_configure(&uart_state.uart_event_queue);
+    esp_err_t err = midi_uart_configure(&uart_driver.uart_event_queue);
     if (err != ESP_OK) {
         return err;
     }
     
     // Initialize MIDI parser
-    err = midi_parser_init(&uart_state.parser,
-                           uart_state.sysex_buffer,
-                           sizeof(uart_state.sysex_buffer));
+    err = midi_parser_init(&uart_driver.parser,
+                           uart_driver.sysex_buffer,
+                           sizeof(uart_driver.sysex_buffer));
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Parser init failed: %s", esp_err_to_name(err));
-        midi_uart_deconfigure(&uart_state.uart_event_queue);
+        midi_uart_deconfigure(&uart_driver.uart_event_queue);
         return err;
     }
 
-    uart_state.rx_callback = uart_rx_callback;
-    uart_state.rx_callback_ctx = NULL;
-    
+    uart_driver.rx_callback = uart_rx_callback;
+    uart_driver.rx_callback_ctx = NULL;
+
     // Create RX task
     BaseType_t task_created = xTaskCreatePinnedToCore(
         midi_uart_rx_task,
         "midi_uart_rx",
         MIDI_UART_TASK_STACK_SIZE,
-        &uart_state,
+        &uart_driver,
         MIDI_UART_TASK_PRIORITY,
-        &uart_state.rx_task_handle,
+        &uart_driver.rx_task_handle,
         MIDI_UART_TASK_CORE
     );
         
     if (task_created != pdPASS) {
         ESP_LOGE(TAG, "Failed to create RX task");
-        midi_uart_deconfigure(&uart_state.uart_event_queue);
+        midi_uart_deconfigure(&uart_driver.uart_event_queue);
         return ESP_FAIL;
     }
-    
-    uart_state.is_initialized = true;
+
+    uart_driver.is_initialized = true;
     ESP_LOGI(TAG, "MIDI UART initialized successfully");
     
     return ESP_OK;
@@ -257,23 +244,23 @@ esp_err_t midi_uart_init(void) {
  * @brief Deinitialize MIDI UART driver
  */
 esp_err_t midi_uart_deinit(void) {
-    if (!uart_state.is_initialized) {
+    if (!uart_driver.is_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
     ESP_LOGI(TAG, "Deinitializing MIDI UART driver");
     
     // Delete RX task
-    if (uart_state.rx_task_handle) {
-        vTaskDelete(uart_state.rx_task_handle);
-        uart_state.rx_task_handle = NULL;
+    if (uart_driver.rx_task_handle) {
+        vTaskDelete(uart_driver.rx_task_handle);
+        uart_driver.rx_task_handle = NULL;
     }
     
     // Deconfigure hardware
-    midi_uart_deconfigure(&uart_state.uart_event_queue);
-    
-    uart_state.is_initialized = false;
-    
+    midi_uart_deconfigure(&uart_driver.uart_event_queue);
+
+    uart_driver.is_initialized = false;
+
     ESP_LOGI(TAG, "MIDI UART deinitialized");
     return ESP_OK;
 }
@@ -282,7 +269,7 @@ esp_err_t midi_uart_deinit(void) {
  * @brief Send MIDI message
  */
 esp_err_t midi_uart_send_message(const midi_message_t *msg) {
-    if (!uart_state.is_initialized) {
+    if (!uart_driver.is_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
@@ -316,7 +303,7 @@ esp_err_t midi_uart_send_message(const midi_message_t *msg) {
  * @brief Send raw MIDI bytes
  */
 esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len) {
-    if (!uart_state.is_initialized) {
+    if (!uart_driver.is_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     
@@ -337,14 +324,14 @@ esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len) {
  * @brief Check if initialized
  */
 bool midi_uart_is_initialized(void) {
-    return uart_state.is_initialized;
+    return uart_driver.is_initialized;
 }
 
 /**
  * @brief Flush TX buffer
  */
 esp_err_t midi_uart_flush_tx(uint32_t timeout_ms) {
-    if (!uart_state.is_initialized) {
+    if (!uart_driver.is_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
     

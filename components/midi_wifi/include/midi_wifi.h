@@ -228,7 +228,7 @@ typedef struct {
  * @param config WiFi MIDI configuration
  * @return ESP_OK on success
  */
-esp_err_t midi_wifi_init(const midi_wifi_config_t *config);
+esp_err_t midi_wifi_init(void);
 
 /**
  * @brief Deinitialize WiFi MIDI driver

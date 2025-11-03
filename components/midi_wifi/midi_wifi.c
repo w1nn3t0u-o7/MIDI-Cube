@@ -213,10 +213,10 @@ static esp_err_t mdns_init_service(void) {
 /**
  * @brief Initialize MIDI WiFi driver
  */
-esp_err_t midi_wifi_init(const midi_wifi_config_t *config) {
-    if (!config) {
-        return ESP_ERR_INVALID_ARG;
-    }
+esp_err_t midi_wifi_init(void) {
+    // if (!config) {
+    //     return ESP_ERR_INVALID_ARG;
+    // }
     
     if (g_wifi_state.initialized) {
         ESP_LOGW(TAG, "WiFi MIDI already initialized");
@@ -227,7 +227,7 @@ esp_err_t midi_wifi_init(const midi_wifi_config_t *config) {
     
     // Clear state
     memset(&g_wifi_state, 0, sizeof(g_wifi_state));
-    g_wifi_state.config = *config;
+    // g_wifi_state.config = *config;
     
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
@@ -238,26 +238,26 @@ esp_err_t midi_wifi_init(const midi_wifi_config_t *config) {
     ESP_ERROR_CHECK(err);
     
     // Create mutexes
-    g_wifi_state.peers_mutex = xSemaphoreCreateMutex();
-    g_wifi_state.discovery_mutex = xSemaphoreCreateMutex();
+    // g_wifi_state.peers_mutex = xSemaphoreCreateMutex();
+    // g_wifi_state.discovery_mutex = xSemaphoreCreateMutex();
     
-    if (!g_wifi_state.peers_mutex || !g_wifi_state.discovery_mutex) {
-        ESP_LOGE(TAG, "Failed to create mutexes");
-        return ESP_FAIL;
-    }
+    // if (!g_wifi_state.peers_mutex || !g_wifi_state.discovery_mutex) {
+    //     ESP_LOGE(TAG, "Failed to create mutexes");
+    //     return ESP_FAIL;
+    // }
     
     // Allocate FEC buffer if enabled
-    if (config->enable_fec) {
-        g_wifi_state.fec_buffer = malloc(sizeof(ump_packet_t) * 2);
-        g_wifi_state.fec_buffer_size = 2;
-    }
+    // if (config->enable_fec) {
+    //     g_wifi_state.fec_buffer = malloc(sizeof(ump_packet_t) * 2);
+    //     g_wifi_state.fec_buffer_size = 2;
+    // }
     
     // Allocate retransmit buffer if enabled
-    if (config->enable_retransmit) {
-        g_wifi_state.retransmit_buffer = calloc(config->retransmit_buffer_size,
-                                                 sizeof(*g_wifi_state.retransmit_buffer));
-        g_wifi_state.retransmit_buffer_size = config->retransmit_buffer_size;
-    }
+    // if (config->enable_retransmit) {
+    //     g_wifi_state.retransmit_buffer = calloc(config->retransmit_buffer_size,
+    //                                              sizeof(*g_wifi_state.retransmit_buffer));
+    //     g_wifi_state.retransmit_buffer_size = config->retransmit_buffer_size;
+    // }
     
     // Initialize WiFi
     err = wifi_init_sta();
@@ -266,16 +266,14 @@ esp_err_t midi_wifi_init(const midi_wifi_config_t *config) {
     }
     
     // Initialize session manager
-    err = midi_wifi_session_init(config);
-    if (err != ESP_OK) {
-        return err;
-    }
+    // err = midi_wifi_session_init(config);
+    // if (err != ESP_OK) {
+    //     return err;
+    // }
     
     g_wifi_state.initialized = true;
     
-    ESP_LOGI(TAG, "MIDI WiFi initialized (mode: %s)",
-             config->mode == MIDI_WIFI_MODE_HOST ? "HOST" :
-             config->mode == MIDI_WIFI_MODE_CLIENT ? "CLIENT" : "BOTH");
+    ESP_LOGI(TAG, "MIDI WiFi initialized successfully");
     
     return ESP_OK;
 }
