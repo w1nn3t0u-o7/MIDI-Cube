@@ -22,183 +22,60 @@
 #ifndef MIDI_ETHERNET_H
 #define MIDI_ETHERNET_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "esp_err.h"
-#include "ump_types.h"
-#include "esp_eth.h"
+#include "esp_netif.h"
+#include "driver/spi_master.h"
 
-// Reuse WiFi types for consistency (same Network MIDI 2.0 protocol)
-typedef struct midi_wifi_peer midi_ethernet_peer_t;
-typedef struct midi_wifi_discovered_device midi_ethernet_discovered_device_t;
-typedef enum midi_wifi_session_state midi_ethernet_session_state_t;
-
-/**
- * @brief UMP receive callback
- */
-typedef void (*midi_ethernet_rx_callback_t)(const ump_packet_t *ump,
-                                             const midi_ethernet_peer_t *peer,
-                                             void *user_ctx);
-
-/**
- * @brief Connection status callback
- */
-typedef void (*midi_ethernet_conn_callback_t)(const midi_ethernet_peer_t *peer,
-                                               bool connected,
-                                               void *user_ctx);
-
-/**
- * @brief Device discovery callback
- */
-typedef void (*midi_ethernet_discovery_callback_t)(const midi_ethernet_discovered_device_t *device,
-                                                    void *user_ctx);
-
-/**
- * @brief Ethernet MIDI configuration
- */
 typedef struct {
-    // SPI configuration (W5500)
-    int spi_host;               /**< SPI host (SPI2_HOST or SPI3_HOST) */
-    int spi_clock_speed_mhz;    /**< SPI clock (up to 80 MHz) */
-    int gpio_sclk;              /**< GPIO for SPI CLK */
-    int gpio_mosi;              /**< GPIO for SPI MOSI */
-    int gpio_miso;              /**< GPIO for SPI MISO */
-    int gpio_cs;                /**< GPIO for W5500 CS */
-    int gpio_int;               /**< GPIO for W5500 INT (-1 = polling) */
-    
-    // Network configuration
-    bool use_dhcp;              /**< Use DHCP (true) or static IP (false) */
-    char static_ip[16];         /**< Static IP (if DHCP disabled) */
-    char netmask[16];           /**< Netmask (if DHCP disabled) */
-    char gateway[16];           /**< Gateway (if DHCP disabled) */
-    
-    // MIDI configuration
-    uint16_t host_port;         /**< UDP port (5004 default) */
-    char endpoint_name[64];     /**< UMP Endpoint name */
-    uint8_t max_clients;        /**< Max simultaneous clients */
-    
-    bool enable_fec;            /**< Forward Error Correction */
-    bool enable_retransmit;     /**< Retransmit support */
-    uint16_t retransmit_buffer_size;
-    
-    bool enable_mdns;           /**< mDNS discovery */
-    
-    // Callbacks
-    midi_ethernet_rx_callback_t rx_callback;
-    midi_ethernet_conn_callback_t conn_callback;
-    midi_ethernet_discovery_callback_t discovery_callback;
-    void *callback_ctx;
-} midi_ethernet_config_t;
+    spi_host_device_t spi_host;  // SPI2_HOST or SPI3_HOST
+    int spi_clock_mhz;            // SPI clock speed (8-36 MHz recommended)
+    int gpio_mosi;
+    int gpio_miso;
+    int gpio_sclk;
+    int gpio_cs;
+    int gpio_int;                 // Interrupt GPIO
+    int gpio_rst;                 // Reset GPIO (-1 if not used)
+} ethernet_transport_config_t;
+
+typedef void (*eth_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
+typedef void (*eth_disconnected_cb_t)(void);
 
 /**
- * @brief Ethernet MIDI statistics
+ * @brief Initialize W5500 Ethernet
+ * 
+ * @param config Ethernet/W5500 configuration
+ * @return esp_err_t ESP_OK on success
  */
-typedef struct {
-    uint32_t packets_rx_total;
-    uint32_t packets_tx_total;
-    uint32_t packets_lost_total;
-    uint32_t packets_recovered_fec;
-    uint32_t active_sessions;
-    bool link_up;
-    bool ip_assigned;
-} midi_ethernet_stats_t;
+esp_err_t ethernet_transport_init(const ethernet_transport_config_t *config);
 
 /**
- * @brief Initialize Ethernet MIDI driver
+ * @brief Register connection callbacks
  * 
- * Initializes W5500 via SPI, starts UDP socket, begins mDNS
- * 
- * @param config Ethernet MIDI configuration
- * @return ESP_OK on success
+ * @param connected_cb Called when Ethernet connects and gets IP
+ * @param disconnected_cb Called when Ethernet link goes down
  */
-esp_err_t midi_ethernet_init(const midi_ethernet_config_t *config);
+void ethernet_transport_register_callbacks(eth_connected_cb_t connected_cb,
+                                          eth_disconnected_cb_t disconnected_cb);
 
 /**
- * @brief Deinitialize Ethernet MIDI driver
+ * @brief Get Ethernet network interface
  * 
- * @return ESP_OK on success
+ * @return esp_netif_t* Network interface or NULL if not initialized
  */
-esp_err_t midi_ethernet_deinit(void);
+esp_netif_t* ethernet_transport_get_netif(void);
 
 /**
- * @brief Wait for Ethernet link up
+ * @brief Check if Ethernet is connected
  * 
- * Blocks until W5500 detects physical link
- * 
- * @param timeout_ms Timeout in milliseconds (0 = no timeout)
- * @return ESP_OK if link up, ESP_ERR_TIMEOUT if timeout
+ * @return true if link is up and has valid IP
  */
-esp_err_t midi_ethernet_wait_for_link(uint32_t timeout_ms);
+bool ethernet_transport_is_connected(void);
 
 /**
- * @brief Check if Ethernet link is up
+ * @brief Stop and deinitialize Ethernet
  * 
- * @return true if cable connected and link established
+ * @return esp_err_t ESP_OK on success
  */
-bool midi_ethernet_is_link_up(void);
-
-/**
- * @brief Send UMP to all connected peers
- * 
- * @param ump UMP packet to send
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_send_ump(const ump_packet_t *ump);
-
-/**
- * @brief Send UMP to specific peer
- * 
- * @param ump UMP packet
- * @param peer_ip Target IP address
- * @param peer_port Target UDP port
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_send_ump_to(const ump_packet_t *ump,
-                                     const char *peer_ip,
-                                     uint16_t peer_port);
-
-/**
- * @brief Get Ethernet statistics
- * 
- * @param stats Output statistics structure
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_get_stats(midi_ethernet_stats_t *stats);
-
-/**
- * @brief Get local IP address
- * 
- * @param ip_str Output buffer (min 16 bytes)
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_get_local_ip(char *ip_str);
-
-/**
- * @brief Get MAC address
- * 
- * @param mac Output buffer (6 bytes)
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_get_mac(uint8_t *mac);
-
-/**
- * @brief Start mDNS discovery scan
- * 
- * @param scan_duration_ms Scan duration
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_start_discovery(uint32_t scan_duration_ms);
-
-/**
- * @brief Get list of active peers
- * 
- * @param peers Output array
- * @param max_peers Array size
- * @param num_peers Output: actual count
- * @return ESP_OK on success
- */
-esp_err_t midi_ethernet_get_peers(midi_ethernet_peer_t *peers,
-                                   uint8_t max_peers,
-                                   uint8_t *num_peers);
+esp_err_t ethernet_transport_deinit(void);
 
 #endif /* MIDI_ETHERNET_H */
