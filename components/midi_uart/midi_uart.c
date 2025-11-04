@@ -13,7 +13,7 @@
 
 static const char *TAG = "midi_uart";
 
-static midi_uart_driver_t uart_driver = {0};
+static midi_uart_driver_t uart_driver;
 
 esp_err_t midi_uart_configure(QueueHandle_t *uart_event_queue) {
     ESP_LOGI(TAG, "Configuring UART%d for MIDI 1.0", MIDI_UART_PORT);

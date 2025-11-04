@@ -28,8 +28,8 @@
 // Transports
 #include "midi_uart.h"
 //#include "midi_usb.h"
-//#include "midi_wifi.h"
-//#include "midi_ethernet.h"
+#include "midi_wifi.h"
+#include "midi_ethernet.h"
 
 // Test suite (optional)
 #include "test_midi_core.h"
@@ -335,10 +335,10 @@ void app_main(void) {
     //=========================================================================
     // 2. Transport Initialization
     //=========================================================================
-    //midi_wifi_init();
+    midi_wifi_init();
+    midi_eth_init();
     midi_uart_init();
     //init_usb();
-    //init_ethernet();
     
     //=========================================================================
     // 3. Create FreeRTOS Tasks

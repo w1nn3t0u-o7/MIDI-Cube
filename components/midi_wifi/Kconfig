@@ -1,0 +1,14 @@
+menu "MIDI WiFi Configuration"
+
+    config MIDI_WIFI_SSID
+        string "WiFi SSID"
+        default "M1dgetSpinner"
+        help
+            SSID (network name) to connect to.
+
+    config MIDI_WIFI_PASSWORD
+        string "WiFi Password"
+        default "bobrzynskiego398"
+        help
+            WiFi password (WPA or WPA2).
+endmenu

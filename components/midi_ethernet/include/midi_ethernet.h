@@ -24,9 +24,21 @@
 
 #include "esp_err.h"
 #include "esp_netif.h"
+#include "esp_eth.h"
+#include "esp_eth_driver.h"
 #include "driver/spi_master.h"
 
+typedef void (*eth_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
+typedef void (*eth_disconnected_cb_t)(void);
+
 typedef struct {
+    esp_netif_t *eth_netif;
+    esp_eth_handle_t eth_handle;
+    eth_connected_cb_t connected_cb;
+    eth_disconnected_cb_t disconnected_cb;
+    bool is_connected;
+    bool link_up;
+
     spi_host_device_t spi_host;  // SPI2_HOST or SPI3_HOST
     int spi_clock_mhz;            // SPI clock speed (8-36 MHz recommended)
     int gpio_mosi;
@@ -35,10 +47,7 @@ typedef struct {
     int gpio_cs;
     int gpio_int;                 // Interrupt GPIO
     int gpio_rst;                 // Reset GPIO (-1 if not used)
-} ethernet_transport_config_t;
-
-typedef void (*eth_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
-typedef void (*eth_disconnected_cb_t)(void);
+} midi_eth_config_t;
 
 /**
  * @brief Initialize W5500 Ethernet
@@ -46,7 +55,7 @@ typedef void (*eth_disconnected_cb_t)(void);
  * @param config Ethernet/W5500 configuration
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t ethernet_transport_init(const ethernet_transport_config_t *config);
+esp_err_t midi_eth_init(void);
 
 /**
  * @brief Register connection callbacks
@@ -54,7 +63,7 @@ esp_err_t ethernet_transport_init(const ethernet_transport_config_t *config);
  * @param connected_cb Called when Ethernet connects and gets IP
  * @param disconnected_cb Called when Ethernet link goes down
  */
-void ethernet_transport_register_callbacks(eth_connected_cb_t connected_cb,
+void midi_eth_register_callbacks(eth_connected_cb_t connected_cb,
                                           eth_disconnected_cb_t disconnected_cb);
 
 /**
@@ -62,20 +71,20 @@ void ethernet_transport_register_callbacks(eth_connected_cb_t connected_cb,
  * 
  * @return esp_netif_t* Network interface or NULL if not initialized
  */
-esp_netif_t* ethernet_transport_get_netif(void);
+esp_netif_t* midi_eth_get_netif(void);
 
 /**
  * @brief Check if Ethernet is connected
  * 
  * @return true if link is up and has valid IP
  */
-bool ethernet_transport_is_connected(void);
+bool midi_eth_is_connected(void);
 
 /**
  * @brief Stop and deinitialize Ethernet
  * 
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t ethernet_transport_deinit(void);
+esp_err_t midi_eth_deinit(void);
 
 #endif /* MIDI_ETHERNET_H */
