@@ -5,7 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 
-static const char *TAG = "wifi_transport";
+static const char *TAG = "midi_wifi";
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1

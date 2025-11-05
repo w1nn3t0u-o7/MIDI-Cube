@@ -1,15 +1,16 @@
 #include "midi_ethernet.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "esp_mac.h"
 #include "esp_eth_mac_w5500.h"
 #include "esp_eth_phy_w5500.h"
 #include "esp_event.h"
 
-static const char *TAG = "eth_transport";
+static const char *TAG = "midi_eth";
 
 static midi_eth_config_t midi_eth_config = {
     .spi_host = SPI2_HOST,
-    .spi_clock_mhz = 20,
+    .spi_clock_mhz = SPI_MASTER_FREQ_20M,
     .gpio_mosi = 11,
     .gpio_miso = 13,
     .gpio_sclk = 12,
@@ -80,6 +81,13 @@ esp_err_t midi_eth_init(void)
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         return ret;
     }
+
+    // CRITICAL: Install GPIO ISR service BEFORE W5500 initialization
+    ret = gpio_install_isr_service(0);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to install GPIO ISR service: %s", esp_err_to_name(ret));
+        return ret;
+    }
     
     // Create network interface for Ethernet
     esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
@@ -100,7 +108,7 @@ esp_err_t midi_eth_init(void)
     // Configure SPI device for W5500
     spi_device_interface_config_t devcfg = {
         .mode = 0,
-        .clock_speed_hz = midi_eth_config.spi_clock_mhz * 1000000,
+        .clock_speed_hz = midi_eth_config.spi_clock_mhz,
         .queue_size = 20,
         .spics_io_num = midi_eth_config.gpio_cs,
     };
@@ -134,6 +142,16 @@ esp_err_t midi_eth_init(void)
     
     // Start Ethernet
     ESP_ERROR_CHECK(esp_eth_start(midi_eth_config.eth_handle));
+
+    // Set MAC address for W5500 (it has no factory MAC)
+    uint8_t base_mac[6];
+    esp_read_mac(base_mac, ESP_MAC_ETH);  // Get ESP32's base MAC + 3
+
+    ESP_LOGI(TAG, "Setting W5500 MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+            base_mac[0], base_mac[1], base_mac[2], base_mac[3], base_mac[4], base_mac[5]);
+
+    // Set MAC on both hardware and esp-netif layer
+    ESP_ERROR_CHECK(esp_netif_set_mac(midi_eth_config.eth_netif, base_mac));
     
     ESP_LOGI(TAG, "W5500 Ethernet initialized successfully");
     
