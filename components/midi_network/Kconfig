@@ -1,0 +1,15 @@
+menu "MIDI Network Configuration"
+
+    config MIDI_NET_PORT
+        int "MIDI Network Port"
+        default 5004
+        help
+            UDP port number for MIDI Network sessions.
+            
+    config MIDI_NET_MAX_SESSIONS
+        int "Maximum MIDI Network Sessions"
+        default 4
+        help
+            Maximum number of simultaneous MIDI Network sessions.
+
+endmenu

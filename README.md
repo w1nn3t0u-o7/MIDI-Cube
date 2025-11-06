@@ -18,6 +18,12 @@
 
 - add wifi provisioning(avoid hardcoding wifi credentials)
 
+## midi_network
+
+- add authentication option to MIDI2 session
+- add ipv6 support
+- client mode (???)
+
 ---
 # Perplexity additions
 
