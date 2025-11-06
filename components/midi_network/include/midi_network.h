@@ -93,12 +93,12 @@ esp_err_t midi_net_ep_start(midi_net_ep_t *ep);
 /**
  * @brief Send UMP packet to a session
  */
-esp_err_t netmidi2_send(midi_net_session_t *session, const ump_packet_t *ump);
+esp_err_t midi_net_send_ump(midi_net_session_t *session, const ump_packet_t *ump);
 
 /**
  * @brief Broadcast UMP packet to all established sessions
  */
-esp_err_t netmidi2_broadcast(midi_net_ep_t *ep, const ump_packet_t *ump);
+esp_err_t midi_net_broadcast_ump(midi_net_ep_t *ep, const ump_packet_t *ump);
 
 /**
  * @brief Process incoming UDP packet

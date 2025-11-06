@@ -1,6 +1,8 @@
 # TODO
 
 - STYLE THE CODE!!!!!
+- Schematic
+- PCB
 
 ## midi_core
 
@@ -23,6 +25,8 @@
 - add authentication option to MIDI2 session
 - add ipv6 support
 - client mode (???)
+- mDNS
+- FEC
 
 ---
 # Perplexity additions

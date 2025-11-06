@@ -264,8 +264,8 @@ esp_err_t midi_net_ep_start(midi_net_ep_t *ep)
     
     // Create RX task
     BaseType_t ret = xTaskCreatePinnedToCore(
-        _netmidi2_rx_task,
-        "netmidi2_rx",
+        midi_net_rx_task,
+        "midi_net_rx",
         4096,
         ep,
         5,
@@ -285,24 +285,24 @@ esp_err_t midi_net_ep_start(midi_net_ep_t *ep)
     return ESP_OK;
 }
 
-esp_err_t netmidi2_send(netmidi2_session_t *session, const midi_ump_t *ump)
+esp_err_t midi_net_send_ump(midi_net_session_t *session, const ump_packet_t *ump)
 {
-    if (session == NULL || session->state == NETMIDI2_SESSION_IDLE) {
+    if (session == NULL || session->state == MIDI_NET_SESSION_IDLE) {
         return ESP_ERR_INVALID_STATE;
     }
     
     // Determine UMP size (1-4 words)
     uint8_t ump_words = 1;
     for (int i = 3; i >= 0; i--) {
-        if (ump->data[i] != 0) {
+        if (ump->words[i] != 0) {
             ump_words = i + 1;
             break;
         }
     }
     
-    uint8_t buf[NETMIDI2_BUFSIZE];
-    size_t len = _build_ump_command(buf, CMD_UMP_DATA, session->tx_ump_seq++,
-                                    ump->data, ump_words);
+    uint8_t buf[MIDI_NET_BUFSIZE];
+    size_t len = _build_ump_command(buf, MIDI_NET_CMD_UMP_DATA, session->tx_ump_seq++,
+                                    ump->words, ump_words);
     
     // Get socket from session (we'll fix this)
     int ret = sendto(-1, buf, len, 0,  // TODO: pass ep->sock
@@ -312,15 +312,15 @@ esp_err_t netmidi2_send(netmidi2_session_t *session, const midi_ump_t *ump)
     return ret > 0 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t netmidi2_broadcast(netmidi2_ep_t *ep, const midi_ump_t *ump)
+esp_err_t netmidi2_broadcast_ump(midi_net_ep_t *ep, const ump_packet_t *ump)
 {
     if (ep == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     
-    for (int i = 0; i < NETMIDI2_MAX_SESSIONS; i++) {
-        if (ep->sessions[i].state == NETMIDI2_SESSION_ESTABLISHED) {
-            netmidi2_send(&ep->sessions[i], ump);
+    for (int i = 0; i < MIDI_NET_MAX_SESSIONS; i++) {
+        if (ep->sessions[i].state == MIDI_NET_SESSION_ESTABLISHED) {
+            midi_net_send_ump(&ep->sessions[i], ump);
         }
     }
     
