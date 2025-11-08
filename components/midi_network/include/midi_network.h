@@ -20,7 +20,7 @@
 #define MIDI_NET_MAX_SESSIONS CONFIG_MIDI_NET_MAX_SESSIONS
 
 #define MIDI_NET_UDP_PACKET_START 0x4D494449  // "MIDI" in ASCII
-#define MIDI_NET_BUFSIZE 256  // Keep under MTU(1400 bytes)
+#define MIDI_NET_BUFSIZE 1400  // Keep under MTU(1400 bytes)
 #define MIDI_NET_CRYPTO_NONCE_SIZE 16
 
 // Command codes (from spec section 5.5)
@@ -71,7 +71,7 @@ typedef struct midi_net_ep {
     const char *name;           // Endpoint name
     const char *product_instance_id;           // Product Instance ID
     struct sockaddr_in local_addr; // Local address
-    //struct pollfd socket_fd;    // Socket file descriptor
+    int sock_fd;    // Socket file descriptor
     midi_net_session_t sessions[MIDI_NET_MAX_SESSIONS];
     
     // Callback for received UMP packets
@@ -82,13 +82,17 @@ typedef struct midi_net_ep {
 /**
  * @brief Initialize UDP MIDI transport endpoint
  */
-esp_err_t midi_net_ep_init(midi_net_ep_t *ep, const char *name,
-                           const char *piid, uint16_t port);
+esp_err_t midi_net_ep_init(const char *name, const char *piid, uint16_t port);
+
+esp_err_t midi_net_ep_stop(void);
 
 /**
- * @brief Start listening for connections
+ * @brief Register mDNS service for automatic discovery
+ * @param hostname Device hostname (e.g., "midi-cube")
+ * @note Call this AFTER network (WiFi/Ethernet) is connected
  */
-esp_err_t midi_net_ep_start(midi_net_ep_t *ep);
+esp_err_t midi_net_register_mdns(const char *hostname);
+
 
 /**
  * @brief Send UMP packet to a session
