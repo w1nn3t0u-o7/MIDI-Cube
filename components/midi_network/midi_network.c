@@ -1,4 +1,5 @@
 #include "midi_network.h"
+#include "midi_router.h"
 #include "esp_log.h"
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
@@ -12,35 +13,344 @@ static midi_net_ep_t midi_server;
 
 // ============ Helper Functions ============
 
-static midi_net_session_t* _find_or_alloc_session(midi_net_ep_t *ep,
-                                                   struct sockaddr_in *addr)
+static inline const char *midi_net_ep_get_name(const midi_net_ep_t *ep)
 {
-    // Try to find existing session
-    for (int i = 0; i < MIDI_NET_MAX_SESSIONS; i++) {
-        midi_net_session_t *sess = &ep->sessions[i];
-        if (sess->state != MIDI_NET_SESSION_IDLE &&
-            sess->peer_addr.sin_addr.s_addr == addr->sin_addr.s_addr &&
-            sess->peer_addr.sin_port == addr->sin_port) {
-            return sess;
-        }
-    }
-    
-    // Allocate new session
-    for (int i = 0; i < MIDI_NET_MAX_SESSIONS; i++) {
-        midi_net_session_t *sess = &ep->sessions[i];
-        if (sess->state == MIDI_NET_SESSION_IDLE) {
-            memcpy(&sess->peer_addr, addr, sizeof(*addr));
-            sess->state = MIDI_NET_SESSION_ESTABLISHED;
-            sess->tx_ump_seq = 0;
-            sess->rx_ump_seq = 0;
-            ESP_LOGI(TAG, "New session: %s:%d",
-                    inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-            return sess;
-        }
-    }
-    
-    return NULL;
+	return (ep->name == NULL) ? "" : ep->name;
 }
+
+#if defined(CONFIG_MIDI2_UMP_STREAM_RESPONDER)
+#define DEFAULT_PIID ump_product_instance_id()
+#else
+#define DEFAULT_PIID ""
+#endif
+
+static inline const char *midi_net_ep_get_piid(const midi_net_ep_t *ep)
+{
+	return (ep->product_instance_id == NULL) ? DEFAULT_PIID : ep->product_instance_id;
+}
+
+/**
+ * @brief Send a command packet to a peer without session state
+ * 
+ * @param sock_fd Socket file descriptor
+ * @param peer_addr Destination address (struct sockaddr_in *)
+ * @param command_code Command code (e.g., 0x10 for INVITATION_REPLY_ACCEPTED)
+ * @param command_specific_data 16-bit command-specific data field
+ * @param payload Pointer to payload words (32-bit each), can be NULL
+ * @param payload_len_words Number of 32-bit words in payload (0-255)
+ * @return Number of bytes sent, or -1 on error
+ */
+static int midi_net_quick_reply(
+    midi_net_ep_t *ep,
+    const struct sockaddr_in *peer_addr,
+    uint8_t command_code,
+    uint16_t command_specific_data,
+    const uint32_t *payload,
+    uint8_t payload_len_words
+) {
+    uint8_t buf[24];
+    size_t offset = 0;
+    
+    // Check if payload will fit
+    size_t packet_size = 8 + (payload_len_words * 4);
+    if (packet_size > sizeof(buf)) {
+        ESP_LOGE("midi_net", "Payload too large: %d words", payload_len_words);
+        return -1;
+    }
+    
+    memcpy(&buf[offset], "MIDI", 4);
+    offset += 4;
+    
+    // Byte 0: Command code
+    buf[offset++] = command_code;
+    
+    // Byte 1: Payload length in words (0-255)
+    buf[offset++] = payload_len_words;
+    
+    // Bytes 2-3: Command-specific data (big-endian 16-bit)
+    buf[offset++] = (command_specific_data >> 8) & 0xFF;  // High byte
+    buf[offset++] = command_specific_data & 0xFF;         // Low byte
+    
+    for (int i = 0; i < payload_len_words; i++) {
+        uint32_t word = payload ? payload[i] : 0;
+
+        // Convert to big-endian (network byte order)
+        buf[offset++] = (word >> 24) & 0xFF;
+        buf[offset++] = (word >> 16) & 0xFF;
+        buf[offset++] = (word >> 8) & 0xFF;
+        buf[offset++] = word & 0xFF;
+    }
+    
+    int sent = sendto(ep->sock_fd, buf, offset, 0,
+                     (struct sockaddr *)peer_addr, sizeof(*peer_addr));
+    
+    if (sent < 0) {
+        ESP_LOGE("midi_net", "Failed to send command 0x%02X: %d", 
+                command_code, errno);
+        return -1;
+    }
+    
+    ESP_LOGD("midi_net", "Sent command 0x%02X (%d bytes) to %s:%d",
+            command_code, sent, inet_ntoa(peer_addr->sin_addr), 
+            ntohs(peer_addr->sin_port));
+    
+    return sent;
+}
+
+/**
+ * @brief      Quickly send a NAK message to a remote without client session
+ * @param[in]  ep               The endpoint sending the NAK
+ * @param[in]  peer_addr        The peer address
+ * @param[in]  peer_addr_len    The peer address length
+ * @param[in]  nak_reason       The NAK reason
+ * @param[in]  nakd_cmd_header  The command packet header this NAK is replying to
+ */
+static inline int midi_net_quick_nak(midi_net_ep_t *ep,
+				     const struct sockaddr_in *peer_addr,
+				     const socklen_t peer_addr_len,
+				     const uint8_t nak_reason,
+				     const uint32_t nakd_cmd_header)
+{
+	return midi_net_quick_reply(ep, peer_addr,
+				    MIDI_NET_CMD_NAK, nak_reason << 8,
+				    &nakd_cmd_header, 1);
+}
+
+static inline void midi_net_free_session(midi_net_session_t *session)
+{
+	ESP_LOGI(TAG, "Free client session");
+    
+    session->state = MIDI_NET_SESSION_NOT_INIT;
+    session->tx_ump_seq = 0;
+    session->rx_ump_seq = 0;
+    memset(&session->peer_addr, 0, sizeof(session->peer_addr));
+}
+
+static inline midi_net_session_t *midi_net_match_session(midi_net_ep_t *ep,
+							      struct sockaddr_in *peer_addr,
+							      socklen_t peer_addr_len)
+{
+	for (size_t i = 0; i < CONFIG_MIDI_NET_MAX_SESSIONS; i++) {
+		if (ep->sessions[i].peer_addr_len == peer_addr_len &&
+		    memcmp(&ep->sessions[i].peer_addr, peer_addr, peer_addr_len) == 0) {
+			ESP_LOGI("midi_net", "Found matching client session %d", i);
+			return &ep->sessions[i];
+		}
+	}
+
+	return NULL;
+}
+
+static inline void midi_net_free_inactive_sessions(midi_net_ep_t *ep)
+{
+    const uint8_t bye_timeout[] = {
+        'M', 'I', 'D', 'I',      // Signature
+        MIDI_NET_CMD_BYE,        // Command
+        0,                       // Payload = 0 words
+        0x04, 0                  // Timeout reason
+    };
+    
+    for (size_t i = 0; i < MIDI_NET_MAX_SESSIONS; i++) {
+        midi_net_session_t *sess = &ep->sessions[i];
+        
+        if (sess->state != MIDI_NET_SESSION_IDLE &&
+            sess->state != MIDI_NET_SESSION_ESTABLISHED) {
+            
+            ESP_LOGW(TAG, "Cleanup inactive session %d", i);
+            
+            int sent = sendto(ep->sock_fd, bye_timeout, sizeof(bye_timeout), 0,
+                             (struct sockaddr *)&sess->peer_addr, 
+                             sizeof(sess->peer_addr));
+            
+            if (sent < 0) {
+                ESP_LOGE(TAG, "Failed to send BYE: %d", errno);
+            }
+            
+            midi_net_free_session(sess);
+        }
+    }
+}
+
+static inline midi_net_session_t *midi_net_try_alloc_session(midi_net_ep_t *ep,
+								  struct sockaddr_in *peer_addr,
+								  socklen_t peer_addr_len)
+{
+	midi_net_session_t *sess;
+	for (size_t i = 0; i < CONFIG_MIDI_NET_MAX_SESSIONS; i++) {
+		sess = &ep->sessions[i];
+		if (sess->state == MIDI_NET_SESSION_NOT_INIT) {
+			sess->state = MIDI_NET_SESSION_IDLE;
+			sess->peer_addr_len = peer_addr_len;
+			sess->ep = ep;
+			memcpy(&sess->peer_addr, peer_addr, peer_addr_len);
+			ESP_LOGI("midi_net", "new client session (%d)", i);
+			return sess;
+		}
+	}
+
+	return NULL;
+}
+
+static inline midi_net_session_t *midi_net_alloc_session(midi_net_ep_t *ep,
+							      struct sockaddr_in *peer_addr,
+							      socklen_t peer_addr_len)
+{
+	midi_net_session_t *session;
+	session = midi_net_try_alloc_session(ep, peer_addr, peer_addr_len);
+	if (session == NULL) {
+		midi_net_free_inactive_sessions(ep);
+		session = midi_net_try_alloc_session(ep, peer_addr, peer_addr_len);
+	}
+
+	if (session == NULL) {
+		ESP_LOGE("midi_net", "No available client session");
+	}
+
+	return session;
+}
+
+/**
+ * @brief Send INVITATION_REPLY_ACCEPTED immediately (no buffering)
+ * 
+ * @param session The session to send reply to
+ * @param authentication_state Authentication state (0x00 for no auth)
+ * @return 0 on success, -1 on error
+ */
+static int midi_net_send_inv_reply(midi_net_session_t *session,
+                                    uint8_t authentication_state) 
+{
+    // Get endpoint name and product instance ID
+    const char *name = midi_net_ep_get_name(session->ep);
+    const char *piid = midi_net_ep_get_piid(session->ep);
+    const size_t namelen = strlen(name);
+    const size_t piidlen = strlen(piid);
+    
+    // Calculate word counts (padded to 4-byte boundaries)
+    const size_t namelen_words = DIV_ROUND_UP(namelen, 4);
+    const size_t piidlen_words = DIV_ROUND_UP(piidlen, 4);
+    const size_t total_words = namelen_words + piidlen_words;
+    
+    // Build command-specific data: name_words in high byte, auth_state in low byte
+    const uint16_t specific_data = (namelen_words << 8) | authentication_state;
+    
+    // Build packet directly in stack buffer
+    uint8_t buf[256];
+    size_t offset = 0;
+    
+    // Add "MIDI" signature
+    memcpy(&buf[offset], "MIDI", 4);
+    offset += 4;
+    
+    // Add command header
+    buf[offset++] = MIDI_NET_CMD_INV_REPLY_ACCEPTED;
+    buf[offset++] = total_words;
+    buf[offset++] = (specific_data >> 8) & 0xFF;
+    buf[offset++] = specific_data & 0xFF;
+    
+    // Add endpoint name (padded to 4-byte boundary)
+    memcpy(&buf[offset], name, namelen);
+    offset += namelen;
+    size_t name_padding = (4 - (namelen % 4)) % 4;
+    for (size_t i = 0; i < name_padding; i++) {
+        buf[offset++] = 0;
+    }
+    
+    // Add product instance ID (padded to 4-byte boundary)
+    memcpy(&buf[offset], piid, piidlen);
+    offset += piidlen;
+    size_t piid_padding = (4 - (piidlen % 4)) % 4;
+    for (size_t i = 0; i < piid_padding; i++) {
+        buf[offset++] = 0;
+    }
+    
+    // Send immediately
+    int sent = sendto(session->ep->sock_fd, buf, offset, 0,
+                     (struct sockaddr *)&session->peer_addr,
+                     sizeof(session->peer_addr));
+    
+    if (sent < 0) {
+        ESP_LOGE(TAG, "Failed to send INV_REPLY: %d", errno);
+        return -1;
+    }
+    
+    ESP_LOGI(TAG, "Sent INVITATION_REPLY_ACCEPTED (%d bytes) to %s:%d",
+            sent, inet_ntoa(session->peer_addr.sin_addr),
+            ntohs(session->peer_addr.sin_port));
+    
+    return 0;
+}
+
+/**
+ * @brief Send a command packet to a session
+ * Builds and sends packet immediately (no buffering)
+ * 
+ * @param session Session to send to
+ * @param command_code Command code (e.g., PING_REPLY, SESSION_RESET_REPLY)
+ * @param command_specific_data 16-bit command-specific data
+ * @param payload Pointer to payload words (32-bit each), can be NULL
+ * @param payload_len_words Number of 32-bit words in payload (0-255)
+ * @return 0 on success, -1 on error
+ */
+static int midi_net_session_sendcmd(
+    midi_net_session_t *session,
+    uint8_t command_code,
+    uint16_t command_specific_data,
+    const uint32_t *payload,
+    uint8_t payload_len_words
+) {
+    if (session == NULL || session->ep == NULL) {
+        ESP_LOGE(TAG, "Invalid session");
+        return -1;
+    }
+    
+    // Build packet in stack buffer
+    uint8_t buf[256];  // Max packet size
+    size_t offset = 0;
+    
+    // Check payload fits
+    size_t packet_size = 8 + (payload_len_words * 4);
+    if (packet_size > sizeof(buf)) {
+        ESP_LOGE(TAG, "Payload too large: %d words", payload_len_words);
+        return -1;
+    }
+    
+    // Add "MIDI" signature
+    memcpy(&buf[offset], "MIDI", 4);
+    offset += 4;
+    
+    // Add command header
+    buf[offset++] = command_code;
+    buf[offset++] = payload_len_words;
+    buf[offset++] = (command_specific_data >> 8) & 0xFF;
+    buf[offset++] = command_specific_data & 0xFF;
+    
+    // Add payload words (convert to network byte order)
+    for (int i = 0; i < payload_len_words; i++) {
+        uint32_t word = payload ? payload[i] : 0;
+        buf[offset++] = (word >> 24) & 0xFF;
+        buf[offset++] = (word >> 16) & 0xFF;
+        buf[offset++] = (word >> 8) & 0xFF;
+        buf[offset++] = word & 0xFF;
+    }
+    
+    // Send immediately
+    int sent = sendto(session->ep->sock_fd, buf, offset, 0,
+                     (struct sockaddr *)&session->peer_addr,
+                     sizeof(session->peer_addr));
+    
+    if (sent < 0) {
+        ESP_LOGE(TAG, "Failed to send command 0x%02X: %d", command_code, errno);
+        return -1;
+    }
+    
+    ESP_LOGD(TAG, "Sent command 0x%02X (%d bytes) to %s:%d",
+            command_code, sent, inet_ntoa(session->peer_addr.sin_addr),
+            ntohs(session->peer_addr.sin_port));
+    
+    return 0;
+}
+
+
 
 static size_t _build_ump_command(uint8_t *buf, uint8_t cmd_code,
                                  uint16_t seq_num, const uint32_t *payload,
@@ -66,103 +376,151 @@ static size_t _build_ump_command(uint8_t *buf, uint8_t cmd_code,
     return offset;
 }
 
-static void _process_packet(midi_net_ep_t *ep, uint8_t *data, size_t len,
-                            struct sockaddr_in *peer_addr)
+static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t len,
+                            struct sockaddr_in *peer_addr, socklen_t peer_addr_len)
 {
     if (len < 8 || memcmp(data, "MIDI", 4) != 0) {
         return;
     }
     
+    midi_net_session_t *session;
     size_t offset = 4;
     while (offset + 4 <= len) {
+
         uint8_t cmd_code = data[offset];
         uint8_t payload_words = data[offset + 1];
         uint16_t cmd_data = ((uint16_t)data[offset + 2] << 8) | data[offset + 3];
+        uint32_t cmd_header = 
+            ((uint32_t)cmd_code << 24) |
+            ((uint32_t)payload_words << 16) |
+            (uint32_t)cmd_data;
         size_t payload_size = payload_words * 4;
         
         if (offset + 4 + payload_size > len) {
+            midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+				   NAK_CMD_MALFORMED, cmd_header);
+            ESP_LOGE("midi_net", "Incomplete UDP MIDI command packet payload");
             break;
         }
-        
-        uint32_t *payload = (uint32_t *)&data[offset + 4];
         
         ESP_LOGI(TAG, "CMD 0x%02X from %s", cmd_code, inet_ntoa(peer_addr->sin_addr));
         
         switch (cmd_code) {
-        case MIDI_NET_CMD_INV: {
-            midi_net_session_t *sess = _find_or_alloc_session(ep, peer_addr);
-            if (sess) {
-                // Send invitation reply
-                uint8_t reply_buf[256];
-                const char *name = ep->name ? ep->name : "ESP32";
-                const char *piid = ep->product_instance_id ? ep->product_instance_id : "unknown";
-                size_t name_len = strlen(name);
-                size_t piid_len = strlen(piid);
-                size_t name_words = (name_len + 3) / 4;
-                size_t piid_words = (piid_len + 3) / 4;
-                
-                size_t reply_offset = 0;
-                memcpy(&reply_buf[reply_offset], "MIDI", 4);
-                reply_offset += 4;
-                reply_buf[reply_offset++] = MIDI_NET_CMD_INV_REPLY_ACCEPTED;
-                reply_buf[reply_offset++] = name_words + piid_words;
-                reply_buf[reply_offset++] = 0;
-                reply_buf[reply_offset++] = 0;
-                
-                memcpy(&reply_buf[reply_offset], name, name_len);
-                reply_offset += name_len;
-                while (name_len % 4) {
-                    reply_buf[reply_offset++] = 0;
-                    name_len++;
-                }
-                
-                memcpy(&reply_buf[reply_offset], piid, piid_len);
-                reply_offset += piid_len;
-                while (piid_len % 4) {
-                    reply_buf[reply_offset++] = 0;
-                    piid_len++;
-                }
-                
-                sendto(ep->sock_fd, reply_buf, reply_offset, 0,
-                      (struct sockaddr *)peer_addr, sizeof(*peer_addr));
+        case MIDI_NET_CMD_PING: {
+            // Simple reply with 1 word from the PING request
+            if (payload_words != 1) {
+                midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+                                   NAK_CMD_MALFORMED, cmd_header);
+                ESP_LOGE(TAG, "Invalid payload length for PING packet");
+                break;
             }
+            uint32_t ping_word = 
+                ((uint32_t)data[offset + 4] << 24) |
+                ((uint32_t)data[offset + 5] << 16) |
+                ((uint32_t)data[offset + 6] << 8) |
+                (uint32_t)data[offset + 7];
+            
+            midi_net_quick_reply(ep, peer_addr,
+                                 MIDI_NET_CMD_PING_REPLY, 0,
+                                 &ping_word, 1);
             break;
         }
-        
-        case MIDI_NET_CMD_UMP_DATA: {
-            midi_net_session_t *sess = _find_or_alloc_session(ep, peer_addr);
-            if (sess && ep->rx_callback) {
-                ump_packet_t ump;
+        case MIDI_NET_CMD_INV: {
 
-                // Convert each UMP word from network to host byte order
-                for (int i = 0; i < payload_words && i < 4; i++) {
-                    ump.words[i] = ntohl(payload[i]);  // NETWORK (big-endian) → HOST
-                }
-                
-                // Zero out unused words
-                for (int i = payload_words; i < 4; i++) {
-                    ump.words[i] = 0;
-                }
-                ep->rx_callback(sess, &ump);
+            session = midi_net_alloc_session(ep, peer_addr, peer_addr_len);
+
+            if (session == NULL) {
+			    break;
+		    }
+
+		    session->state = MIDI_NET_SESSION_ESTABLISHED;
+		    midi_net_send_inv_reply(session, AUTH_STATE_FIRST_REQUEST);
+		    break;
+        }
+        case MIDI_NET_CMD_UMP_DATA: {
+            session = midi_net_match_session(ep, peer_addr, peer_addr_len);
+            if (!SESSION_HAS_STATE(session, MIDI_NET_SESSION_ESTABLISHED)) {
+                midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+                        NAK_CMD_NOT_EXPECTED, cmd_header);
+                ESP_LOGW("midi_net", "Receiving UMP data without established session");
+                break;
+            }
+
+            if (session->rx_ump_seq == cmd_data) {
+                session->rx_ump_seq++;
+            } else {
+                ESP_LOGW("midi_net", "UMP Rx sequence mismatch (got %d, expected %d)",
+                        cmd_data, session->rx_ump_seq);
+                session->rx_ump_seq = 1 + cmd_data;
+            }
+
+            if (payload_words < 1 || payload_words > 4) {
+                midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+                        NAK_CMD_MALFORMED, cmd_header);
+                ESP_LOGE("midi_net", "Invalid UMP length");
+                break;
+            }
+
+            ump_packet_t ump = {0};
+            size_t ump_offset = offset + 4;  // Skip command header
+    
+            for (size_t i = 0; i < payload_words; i++) {
+                uint32_t word = 
+                    ((uint32_t)data[ump_offset + 0] << 24) |
+                    ((uint32_t)data[ump_offset + 1] << 16) |
+                    ((uint32_t)data[ump_offset + 2] << 8) |
+                    (uint32_t)data[ump_offset + 3];
+                ump.words[i] = word;  // Already in host byte order
+                ump_offset += 4;
+            }
+
+            if (UMP_NUM_WORDS(ump) != payload_words) {
+                midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+                        NAK_CMD_MALFORMED, cmd_header);
+                ESP_LOGE("midi_net", "Invalid UMP payload size for its message type");
+                break;
+            }
+
+            midi_net_broadcast_ump(ep, &ump);
+
+            if (ep->rx_callback != NULL) {
+                ep->rx_callback(session, &ump);
             }
             break;
         }
         
         case MIDI_NET_CMD_BYE: {
-            for (int i = 0; i < MIDI_NET_MAX_SESSIONS; i++) {
-                midi_net_session_t *sess = &ep->sessions[i];
-                if (sess->state != MIDI_NET_SESSION_IDLE &&
-                    sess->peer_addr.sin_addr.s_addr == peer_addr->sin_addr.s_addr &&
-                    sess->peer_addr.sin_port == peer_addr->sin_port) {
-                    sess->state = MIDI_NET_SESSION_IDLE;
-                    ESP_LOGI(TAG, "Session closed");
-                }
+            session = midi_net_match_session(ep, peer_addr, peer_addr_len);
+		    if (session == NULL) {
+			    midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+					                NAK_CMD_NOT_EXPECTED, cmd_header);
+			    ESP_LOGW("midi_net", "Receiving BYE without session");
+			    break;
+		    }
+		    //net_buf_pull(rx, payload_len);
+		    midi_net_quick_reply(ep, peer_addr, MIDI_NET_CMD_BYE_REPLY, 0, NULL, 0);
+		    midi_net_free_session(session);
+		    break;
+        }
+        case MIDI_NET_CMD_SESSION_RESET: {
+            session = midi_net_match_session(ep, peer_addr, peer_addr_len);
+            if (!SESSION_HAS_STATE(session, MIDI_NET_SESSION_ESTABLISHED)) {
+                ESP_LOGW("midi_net", "Receiving session reset without established session");
+                midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+                        NAK_CMD_NOT_EXPECTED, cmd_header);
+                break;
             }
+
+            session->tx_ump_seq = 0;
+            session->rx_ump_seq = 0;
+            ESP_LOGI(TAG, "Reset session");
+            midi_net_session_sendcmd(session, MIDI_NET_CMD_SESSION_RESET_REPLY, 0, NULL, 0);
             break;
         }
-        
         default:
             ESP_LOGD(TAG, "Unknown command: 0x%02X", cmd_code);
+            midi_net_quick_nak(ep, peer_addr, peer_addr_len,
+				   NAK_CMD_NOT_SUPPORTED, cmd_header);
             break;
         }
         
@@ -190,8 +548,8 @@ static void midi_net_rx_task(void *pvParameters)
         FD_SET(ep->sock_fd, &readset);
         
         // Set timeout to 1 second
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000;
         
         // Wait for socket to have data
         int select_ret = select(ep->sock_fd + 1, &readset, NULL, NULL, &timeout);
@@ -216,8 +574,8 @@ static void midi_net_rx_task(void *pvParameters)
                 ESP_LOGI(TAG, "Received %d bytes from %s:%d",
                         recv_len, inet_ntoa(peer_addr.sin_addr),
                         ntohs(peer_addr.sin_port));
-                
-                _process_packet(ep, rx_buffer, recv_len, &peer_addr);
+
+                midi_net_proc_udp_packet(ep, rx_buffer, recv_len, &peer_addr, peer_addr_len);
             }
         }
     }
@@ -235,6 +593,7 @@ esp_err_t midi_net_ep_init(const char *name, const char *piid, uint16_t port)
     midi_server.product_instance_id = piid;
     midi_server.local_addr.sin_port = port ? port : MIDI_NET_PORT;
     midi_server.sock_fd = -1;
+    midi_server.rx_callback = midi_net_rx_callback;
 
     memset(midi_server.sessions, 0, sizeof(midi_server.sessions));
     
@@ -317,7 +676,7 @@ esp_err_t midi_net_send_ump(midi_net_session_t *session, const ump_packet_t *ump
     return ret > 0 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t netmidi2_broadcast_ump(midi_net_ep_t *ep, const ump_packet_t *ump)
+esp_err_t midi_net_broadcast_ump(midi_net_ep_t *ep, const ump_packet_t *ump)
 {
     if (ep == NULL) {
         return ESP_ERR_INVALID_ARG;

@@ -16,6 +16,29 @@ static const char *TAG = "midi_router";
 static midi_router_state_t router_state;
 
 /**
+ * @brief Callback when UMP packet is received from network
+ * This sends the packet to the MIDI router for processing
+ */
+void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump)
+{
+    // Create routing message
+    midi_router_packet_t msg = {
+        .source = MIDI_TRANSPORT_NETWORK,  // Or however you identify network source
+        .format = MIDI_FORMAT_2_0,
+        .data.ump = *ump,
+    };
+    
+    // Send to router queue (non-blocking)
+    if (xQueueSend(router_state.packet_queue, &msg, 0) != pdTRUE) {
+        ESP_LOGW(TAG, "Router queue full, dropped UMP packet");
+    } else {
+        ESP_LOGI(TAG, "Sent UMP to router: type=0x%X", 
+                (ump->words[0] >> 28) & 0x0F);
+    }
+}
+
+
+/**
  * @brief UART RX Callback
  * Called by UART driver when MIDI message received
  */
@@ -94,8 +117,7 @@ static void midi_router_task(void *arg) {
             
             // Translate if destination requires different format
             midi_router_packet_t out_packet = packet;
-            bool dest_wants_ump = (dest == MIDI_TRANSPORT_ETHERNET || 
-                                   dest == MIDI_TRANSPORT_WIFI ||
+            bool dest_wants_ump = (dest == MIDI_TRANSPORT_NETWORK || 
                                    dest == MIDI_TRANSPORT_USB);  // USB can do both
             // If needed translate
             esp_err_t err = midi_router_translate(&out_packet, dest_wants_ump);

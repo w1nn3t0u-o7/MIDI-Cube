@@ -12,6 +12,18 @@
 #include <stdint.h>
 #include "midi_defs.h"
 
+#define UMP_MT(ump) \
+        ((ump).words[0] >> 28)
+ 
+#define UMP_NUM_WORDS_LOOKUP_TABLE \
+        ((0U << 0) | (0U << 2) | (0U << 4) | (1U << 6) | \
+        (1U << 8) | (3U << 10) | (0U << 12) | (0U << 14) | \
+        (1U << 16) | (1U << 18) | (1U << 20) | (2U << 22) | \
+        (2U << 24) | (3U << 26) | (3U << 28) | (3U << 30))
+ 
+#define UMP_NUM_WORDS(ump) \
+        (1 + ((UMP_NUM_WORDS_LOOKUP_TABLE >> (2 * UMP_MT(ump))) & 3))
+
 /**
  * @defgroup UMP_MESSAGE_TYPES UMP Message Type (MT) Definitions
  * @brief Message Type field values (bits 31-28 of first word)

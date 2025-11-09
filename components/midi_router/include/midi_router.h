@@ -28,6 +28,7 @@
 
 #include "midi_types.h"
 #include "ump_types.h"
+#include "midi_network.h"
 
 #define ROUTER_QUEUE_SIZE 64
 #define ROUTER_TASK_STACK_SIZE 4096
@@ -40,8 +41,7 @@
 typedef enum {
     MIDI_TRANSPORT_UART,  /**< UART/DIN-5 (MIDI 1.0) */
     MIDI_TRANSPORT_USB,       /**< USB (MIDI 1.0/2.0) */
-    MIDI_TRANSPORT_ETHERNET,  /**< Ethernet (MIDI 2.0) */
-    MIDI_TRANSPORT_WIFI,      /**< WiFi (MIDI 2.0) */
+    MIDI_TRANSPORT_NETWORK,  /**< Ethernet/WiFi (MIDI 2.0 over UDP) */
     MIDI_TRANSPORT_COUNT      /**< Number of transports */
 } midi_transport_t;
 
@@ -78,6 +78,8 @@ typedef struct {
 } midi_router_packet_t;
 
 void uart_rx_callback(const midi_message_t *msg, void *ctx);
+
+void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump);
 
 /**
  * @brief Initialize MIDI router

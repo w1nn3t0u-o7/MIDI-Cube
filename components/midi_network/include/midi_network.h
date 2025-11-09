@@ -9,6 +9,12 @@
 
 #include "ump_types.h"
 
+// Helper macro: round up division
+#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+
+#define SESSION_HAS_STATE(session, expected_state) \
+	((session) && (session)->state == expected_state)
+
 /**
  * @brief Network MIDI 2.0 UDP Transport Component
  * 
@@ -42,6 +48,21 @@
 #define MIDI_NET_CMD_BYE_REPLY 0xF1
 #define MIDI_NET_CMD_UMP_DATA 0xFF
 
+/* See netmidi10: 6.15 / Table 25: List of NAK Reasons */
+#define NAK_OTHER			0x00
+#define NAK_CMD_NOT_SUPPORTED	0x01
+#define NAK_CMD_NOT_EXPECTED	0x02
+#define NAK_CMD_MALFORMED		0x03
+#define NAK_CMD_BAD_PING_REPLY		0x20
+
+/* See netmidi10: 6.4 / Table 11: Capabilities for Invitation */
+#define CLIENT_CAP_INV_WITH_AUTH	BIT(0)
+#define CLIENT_CAP_INV_WITH_USER_AUTH	BIT(1)
+
+/* See netmidi10: 6.7 / Table 15: Values for Authentication State */
+#define AUTH_STATE_FIRST_REQUEST	0x00
+#define AUTH_STATE_INCORRECT_DIGEST	0x01
+
 // Session states
 typedef enum {
     MIDI_NET_SESSION_NOT_INIT,
@@ -53,6 +74,18 @@ typedef enum {
     MIDI_NET_SESSION_PENDING_BYE,
 } midi_net_session_state_t;
 
+/**
+ * @brief      Type of authentication in Network MIDI2
+ */
+typedef enum {
+	/** No authentication required */
+	MIDI_NET_AUTH_NONE,
+	/** Authentication with a shared secret key */
+	MIDI_NET_AUTH_SHARED_SECRET,
+	/** Authentication with username and password */
+	MIDI_NET_AUTH_USER_PASSWORD,
+} midi_net_auth_type_t;
+
 typedef struct midi_net_ep midi_net_ep_t;
 typedef struct midi_net_session midi_net_session_t;
 
@@ -63,7 +96,7 @@ typedef struct midi_net_session {
     socklen_t peer_addr_len;
     uint16_t tx_ump_seq;  // Transmit sequence number
     uint16_t rx_ump_seq;  // Receive sequence number
-    struct midi_net_ep *ep;
+    midi_net_ep_t *ep;
 } midi_net_session_t;
 
 // Endpoint structure

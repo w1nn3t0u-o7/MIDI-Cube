@@ -25,8 +25,8 @@
 - add authentication option to MIDI2 session
 - add ipv6 support
 - client mode (???)
-- mDNS
 - FEC
+- ump stream responder.h check
 
 ---
 # Perplexity additions
