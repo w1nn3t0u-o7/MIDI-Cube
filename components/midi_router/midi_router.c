@@ -15,6 +15,28 @@ static const char *TAG = "midi_router";
 
 static midi_router_state_t router_state;
 
+// User callback that handles USB MIDI packets and sends to router queue
+void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
+{
+    
+    // Create MIDI packet structure
+    midi_router_packet_t packet = {
+        .source = MIDI_TRANSPORT_USB,
+        .format = MIDI_FORMAT_1_0,
+        .data.midi1 = *msg,  
+        .cable = cable,
+        .cin = cin,  // Extract Code Index Number from status byte
+    };
+    
+    // Send to router queue (non-blocking)
+    if (xQueueSend(router_state.packet_queue, &packet, 0) != pdTRUE) {
+        ESP_LOGW(TAG, "Router queue full - packet dropped [cable:%d]", packet.cable);
+    } else {
+        ESP_LOGD(TAG, "Packet sent to router [cable:%d]: %02X %02X %02X", 
+                 packet.cable, packet.data.midi1.status, packet.data.midi1.data.bytes[0], packet.data.midi1.data.bytes[1]);
+    }
+}
+
 /**
  * @brief Callback when UMP packet is received from network
  * This sends the packet to the MIDI router for processing
@@ -108,24 +130,22 @@ static void midi_router_task(void *arg) {
             continue;
         }
         
-        for (int dest = 0; dest < MIDI_TRANSPORT_COUNT; dest++) {
-            
-            // Don't route back to source (avoid loops)
-            if (dest == packet.source) {
-                continue;
-            }
-            
-            // Translate if destination requires different format
-            midi_router_packet_t out_packet = packet;
-            bool dest_wants_ump = (dest == MIDI_TRANSPORT_NETWORK || 
-                                   dest == MIDI_TRANSPORT_USB);  // USB can do both
-            // If needed translate
-            esp_err_t err = midi_router_translate(&out_packet, dest_wants_ump);
-            if (err != ESP_OK) {
-                ESP_LOGW(TAG, "Translation failed");
-                continue;
-            }
-            // Send to destination
+        if (packet.source == MIDI_TRANSPORT_UART) {
+            ESP_LOGI(TAG, "Router received UART packet: Status=0x%02X", 
+                     packet.data.midi1.status);
+            // send it to UART TX
+            // send it through USB
+            // translate it and send it through network
+        } else if (packet.source == MIDI_TRANSPORT_USB) {
+            ESP_LOGI(TAG, "Router received USB packet: Status=0x%02X", 
+                     packet.data.midi1.status);
+            // send it through UART
+            // translate it and send it through network
+        } else if (packet.source == MIDI_TRANSPORT_NETWORK) {
+            ESP_LOGI(TAG, "Router received Network UMP packet: Type=0x%X", 
+                     (packet.data.ump.words[0] >> 28) & 0x0F);
+            // translate it and send it through UART
+            // send it through USB
         }
     }
 }

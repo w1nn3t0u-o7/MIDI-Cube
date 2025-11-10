@@ -3,6 +3,7 @@
 - STYLE THE CODE!!!!!
 - Schematic
 - PCB
+- optimize for latency
 
 ## midi_core
 

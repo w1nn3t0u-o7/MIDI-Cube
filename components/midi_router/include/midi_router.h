@@ -70,6 +70,8 @@ typedef struct {
 typedef struct {
     midi_transport_t source;     /**< Source transport */
     uint8_t format;               /**< 0=MIDI1.0, 1=UMP */
+    uint8_t cable;                /**< Cable number (for USB) */
+    uint8_t cin;                  /**< Code Index Number (for MIDI 1.0) */
     
     union {
         midi_message_t midi1;     /**< MIDI 1.0 message */
@@ -80,6 +82,8 @@ typedef struct {
 void uart_rx_callback(const midi_message_t *msg, void *ctx);
 
 void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump);
+
+void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg);
 
 /**
  * @brief Initialize MIDI router

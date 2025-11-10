@@ -27,7 +27,7 @@
 
 // Transports
 #include "midi_uart.h"
-//#include "midi_usb.h"
+#include "midi_usb_device.h"
 #include "midi_wifi.h"
 #include "midi_ethernet.h"
 #include "midi_network.h"
@@ -172,6 +172,8 @@ void app_main(void) {
     midi_eth_init();
      
     midi_router_init();
+    midi_usbd_register_rx_callback(midi_usbd_rx_callback);
+    midi_usbd_init();
     //midi_uart_init();
 
     
