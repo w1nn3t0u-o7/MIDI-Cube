@@ -9,7 +9,7 @@
 
 - Add Active Sensing support
 - Add more robust System Exclusive support 
-- Add trans more translation cases (Right now only note on supported)
+- Add translation case from UMP midi 1.0 to midi1 message
 - add length tu midi message type for easier serializing
 - add reserved values for future proof
 
