@@ -174,7 +174,7 @@ void app_main(void) {
     midi_router_init();
     midi_usbd_register_rx_callback(midi_usbd_rx_callback);
     midi_usbd_init();
-    //midi_uart_init();
+    midi_uart_init();
 
     
     // Main task can now delete itself or handle other duties

@@ -75,6 +75,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *ump_in,
  */
 uint16_t midi_upscale_7to16(uint8_t value7);
 
+uint32_t midi_upscale_7to32(uint8_t value_7);
+
 /**
  * @brief Upscale 14-bit MIDI 1.0 value to 32-bit MIDI 2.0 value
  * 
@@ -100,5 +102,37 @@ uint8_t midi_downscale_16to7(uint16_t value16);
  * @return 14-bit output value (0-16383)
  */
 uint16_t midi_downscale_32to14(uint32_t value32);
+
+esp_err_t ump_build_midi2_note_on(uint8_t group, uint8_t channel, 
+                                   uint8_t note, uint16_t velocity,
+                                   uint8_t attr_type, uint16_t attr_data,
+                                   ump_packet_t *packet);
+
+esp_err_t ump_build_midi2_control_change(uint8_t group, uint8_t channel,
+                                          uint8_t controller, uint32_t value,
+                                          ump_packet_t *packet);
+
+esp_err_t ump_build_midi2_pitch_bend(uint8_t group, uint8_t channel,
+                                      uint32_t value, ump_packet_t *packet);
+                                
+esp_err_t ump_build_midi2_note_off(uint8_t group, uint8_t channel,
+                                    uint8_t note, uint16_t velocity,
+                                    uint8_t attr_type, uint16_t attr_data,
+                                    ump_packet_t *packet);
+
+esp_err_t ump_build_midi2_poly_pressure(uint8_t group, uint8_t channel,
+                                         uint8_t note, uint32_t pressure,
+                                         ump_packet_t *packet);
+
+esp_err_t ump_build_midi2_program_change(uint8_t group, uint8_t channel,
+                                          uint8_t program, bool bank_valid,
+                                          uint8_t bank_msb, uint8_t bank_lsb,
+                                          ump_packet_t *packet);
+
+esp_err_t ump_build_midi2_channel_pressure(uint8_t group, uint8_t channel,
+                                            uint32_t pressure,
+                                            ump_packet_t *packet);
+
+
 
 #endif /* MIDI_TRANSLATOR_H */

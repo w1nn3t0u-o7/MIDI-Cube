@@ -162,82 +162,105 @@ esp_err_t midi_usbd_register_rx_callback(midi_usbd_rx_cb_t callback)
     return ESP_OK;
 }
 
-// esp_err_t midi_usbd_send_note_on(uint8_t cable, uint8_t channel, uint8_t note, uint8_t velocity)
-// {
-//     if (!tud_midi_mounted()) {
-//         return ESP_ERR_INVALID_STATE;
-//     }
+/**
+ * @brief Send a complete MIDI message via USB
+ * 
+ * @param cable Cable number (0-15)
+ * @param msg Pointer to MIDI message structure
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
+{
+    if (!msg) {
+        return ESP_ERR_INVALID_ARG;
+    }
     
-//     uint8_t msg[3] = {
-//         MIDI_NOTE_ON | (channel & 0x0F),
-//         note & 0x7F,
-//         velocity & 0x7F
-//     };
+    if (!tud_midi_mounted()) {
+        return ESP_ERR_INVALID_STATE;
+    }
     
-//     uint32_t written = tud_midi_stream_write(cable, msg, 3);
-//     return (written == 3) ? ESP_OK : ESP_FAIL;
-// }
-
-// esp_err_t midi_usbd_send_note_off(uint8_t cable, uint8_t channel, uint8_t note, uint8_t velocity)
-// {
-//     if (!tud_midi_mounted()) {
-//         return ESP_ERR_INVALID_STATE;
-//     }
+    // Buffer for MIDI message (max 3 bytes for standard messages)
+    uint8_t buffer[3];
+    uint8_t len = 0;
     
-//     uint8_t msg[3] = {
-//         MIDI_NOTE_OFF | (channel & 0x0F),
-//         note & 0x7F,
-//         velocity & 0x7F
-//     };
+    // First byte is always the status byte
+    buffer[len++] = msg->status;
     
-//     uint32_t written = tud_midi_stream_write(cable, msg, 3);
-//     return (written == 3) ? ESP_OK : ESP_FAIL;
-// }
-
-// esp_err_t midi_usbd_send_control_change(uint8_t cable, uint8_t channel, uint8_t controller, uint8_t value)
-// {
-//     if (!tud_midi_mounted()) {
-//         return ESP_ERR_INVALID_STATE;
-//     }
+    // Determine number of data bytes based on status byte
+    uint8_t status_type = msg->status & 0xF0;
     
-//     uint8_t msg[3] = {
-//         MIDI_CONTROL_CHANGE | (channel & 0x0F),
-//         controller & 0x7F,
-//         value & 0x7F
-//     };
+    // Channel Voice Messages (0x80 - 0xEF)
+    if (status_type >= 0x80 && status_type <= 0xE0) {
+        switch (status_type) {
+            case 0x80: // Note Off (3 bytes)
+            case 0x90: // Note On (3 bytes)
+            case 0xA0: // Poly Pressure (3 bytes)
+            case 0xB0: // Control Change (3 bytes)
+            case 0xE0: // Pitch Bend (3 bytes)
+                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                buffer[len++] = msg->data.bytes[1] & 0x7F;
+                break;
+                
+            case 0xC0: // Program Change (2 bytes)
+            case 0xD0: // Channel Pressure (2 bytes)
+                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                break;
+                
+            default:
+                return ESP_ERR_INVALID_ARG;
+        }
+    }
+    // System Messages (0xF0 - 0xFF)
+    else if (msg->status >= 0xF0) {
+        switch (msg->status) {
+            case 0xF0: // SysEx Start (handled separately)
+            case 0xF7: // SysEx End (handled separately)
+                return ESP_ERR_NOT_SUPPORTED; // Use separate SysEx function
+                
+            case 0xF1: // MIDI Time Code Quarter Frame (2 bytes)
+            case 0xF3: // Song Select (2 bytes)
+                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                break;
+                
+            case 0xF2: // Song Position Pointer (3 bytes)
+                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                buffer[len++] = msg->data.bytes[1] & 0x7F;
+                break;
+                
+            case 0xF6: // Tune Request (1 byte)
+            case 0xF8: // Timing Clock (1 byte)
+            case 0xFA: // Start (1 byte)
+            case 0xFB: // Continue (1 byte)
+            case 0xFC: // Stop (1 byte)
+            case 0xFE: // Active Sensing (1 byte)
+            case 0xFF: // System Reset (1 byte)
+                // No data bytes, just status
+                break;
+                
+            default:
+                return ESP_ERR_INVALID_ARG;
+        }
+    }
+    else {
+        return ESP_ERR_INVALID_ARG;
+    }
     
-//     uint32_t written = tud_midi_stream_write(cable, msg, 3);
-//     return (written == 3) ? ESP_OK : ESP_FAIL;
-// }
-
-// esp_err_t midi_usbd_send_program_change(uint8_t cable, uint8_t channel, uint8_t program)
-// {
-//     if (!tud_midi_mounted()) {
-//         return ESP_ERR_INVALID_STATE;
-//     }
+    // Send via TinyUSB
+    uint32_t written = tud_midi_stream_write(cable & 0x0F, buffer, len);
     
-//     uint8_t msg[2] = {
-//         MIDI_PROGRAM_CHANGE | (channel & 0x0F),
-//         program & 0x7F
-//     };
+    if (written != len) {
+        ESP_LOGW(TAG, "USB MIDI write incomplete: %lu/%d bytes", written, len);
+        return ESP_FAIL;
+    }
     
-//     uint32_t written = tud_midi_stream_write(cable, msg, 2);
-//     return (written == 2) ? ESP_OK : ESP_FAIL;
-// }
-
-// esp_err_t usb_midi_send_raw(uint8_t cable, const uint8_t *data, uint8_t len)
-// {
-//     if (!data || len == 0) {
-//         return ESP_ERR_INVALID_ARG;
-//     }
+    ESP_LOGD(TAG, "USB MIDI sent: cable=%d, len=%d, data=[%02X %02X %02X]",
+             cable, len, 
+             buffer[0], 
+             len > 1 ? buffer[1] : 0, 
+             len > 2 ? buffer[2] : 0);
     
-//     if (!tud_midi_mounted()) {
-//         return ESP_ERR_INVALID_STATE;
-//     }
-    
-//     uint32_t written = tud_midi_stream_write(cable, data, len);
-//     return (written == len) ? ESP_OK : ESP_FAIL;
-// }
+    return ESP_OK;
+}
 
 bool usb_midi_is_mounted(void)
 {

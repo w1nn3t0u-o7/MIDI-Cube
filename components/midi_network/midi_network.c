@@ -9,7 +9,7 @@
 
 static const char *TAG = "midi_net";
 
-static midi_net_ep_t midi_server;
+midi_net_ep_t midi_server;
 
 // ============ Helper Functions ============
 

@@ -55,6 +55,10 @@ typedef enum {
  */
 typedef struct {
     bool initialized;
+    bool enable_uart;
+    bool enable_usb;
+    bool enable_network;
+    bool uart_loopback;
     
     // Message queue
     QueueHandle_t packet_queue;
@@ -62,7 +66,7 @@ typedef struct {
     // Router task
     TaskHandle_t router_task_handle;
     
-} midi_router_state_t;
+} midi_router_config_t;
 
 /**
  * @brief MIDI packet format (unified internal format)

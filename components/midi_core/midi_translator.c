@@ -5,63 +5,588 @@
 #include "midi_translator.h"
 
 // MIDI 1.0 (7-bit) to 16-bit (MIDI 2.0) min-center-max upscaling
-uint16_t midi_upscale_7to16(uint8_t value7) {
-    if (value7 == 0) return 0;
-    if (value7 == 64) return 32768;
-    if (value7 >= 127) return 65535;
-    if (value7 < 64)
-        return (uint16_t)(((uint32_t)value7 * 32767) / 63);
-    return (uint16_t)(32768 + (((uint32_t)(value7 - 64) * 32767) / 63));
+uint16_t midi_upscale_7to16(uint8_t value_7) 
+{
+    if (value_7 == 0) return 0x0000;
+    if (value_7 == 0x40) return 0x8000;  // Center value
+    if (value_7 == 0x7F) return 0xFFFF;
+    
+    // For values below center
+    if (value_7 < 0x40) {
+        return (uint16_t)((value_7 << 9) | (value_7 << 2) | (value_7 >> 5));
+    }
+    // For values above center
+    else {
+        return (uint16_t)(0x8000 + ((value_7 - 0x40) << 9) + 
+                         ((value_7 - 0x40) << 2) + ((value_7 - 0x40) >> 5));
+    }
+}
+
+// 7-bit to 32-bit upscaling
+uint32_t midi_upscale_7to32(uint8_t value_7)
+{
+    if (value_7 == 0) return 0x00000000;
+    if (value_7 == 0x40) return 0x80000000;  // Center value
+    if (value_7 == 0x7F) return 0xFFFFFFFF;
+    
+    // For values below center
+    if (value_7 < 0x40) {
+        return ((uint32_t)value_7 << 25) | ((uint32_t)value_7 << 18) | 
+               ((uint32_t)value_7 << 11) | ((uint32_t)value_7 << 4) | 
+               ((uint32_t)value_7 >> 3);
+    }
+    // For values above center
+    else {
+        uint32_t offset = value_7 - 0x40;
+        return 0x80000000 + (offset << 25) + (offset << 18) + 
+               (offset << 11) + (offset << 4) + (offset >> 3);
+    }
 }
 
 // MIDI 1.0 (14-bit) to 32-bit (MIDI 2.0)
-uint32_t midi_upscale_14to32(uint16_t value14) {
-    if (value14 == 0) return 0;
-    if (value14 == 8192) return 0x80000000; // Center value for 32-bit
-    if (value14 >= 16383) return 0xFFFFFFFF;
-    if (value14 < 8192)
-        return ((uint32_t)value14 * 0x7FFFFFFF) / 8191;
-    return 0x80000000 + (((uint32_t)(value14 - 8192) * 0x7FFFFFFF) / 8191);
-}
-
-// Downscale (MIDI 2.0 to MIDI 1.0)
-uint8_t midi_downscale_16to7(uint16_t value16) {
-    return value16 >> 9; // 16->7 bits: shift right by 16-7=9
-}
-uint16_t midi_downscale_32to14(uint32_t value32) {
-    return value32 >> 18; // 32->14 bits: shift by 18
-}
-
-// MIDI 1.0 → UMP (MT 0x2 or 0x4 depending on translation mode)
-esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet) {
-    if (!msg || !packet) return ESP_ERR_INVALID_ARG;
-    // Example: Note On translation only; expand for full coverage as needed
-    if ((msg->status & 0xF0) == MIDI_STATUS_NOTE_ON) {
-        // Upscale velocity
-        uint16_t velocity16 = midi_upscale_7to16(msg->data.bytes[1]);
-        return ump_build_midi2_note_on(0, msg->channel, msg->data.bytes[0], velocity16, 0, 0, packet);
+uint32_t midi_upscale_14to32(uint16_t value_14)
+{
+    if (value_14 == 0) return 0x00000000;
+    if (value_14 == 0x2000) return 0x80000000;  // Center value
+    if (value_14 == 0x3FFF) return 0xFFFFFFFF;
+    
+    // For values below center
+    if (value_14 < 0x2000) {
+        return ((uint32_t)value_14 << 18) | ((uint32_t)value_14 << 4) | 
+               ((uint32_t)value_14 >> 10);
     }
-    // Add translation for other message types here...
-    return ESP_ERR_NOT_SUPPORTED;
+    // For values above center
+    else {
+        uint32_t offset = value_14 - 0x2000;
+        return 0x80000000 + (offset << 18) + (offset << 4) + (offset >> 10);
+    }
 }
 
-// UMP (MIDI 2.0, Note On) → MIDI 1.0
-esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg) {
+// Downscale 16-bit to 7-bit
+uint8_t midi_downscale_16to7(uint16_t value_16)
+{
+    // Right shift by 9 bits (divide by 512)
+    return (value_16 >> 9) & 0x7F;
+}
+
+// Downscale 32-bit to 7-bit
+uint8_t midi_downscale_32to7(uint32_t value_32)
+{
+    // Right shift by 25 bits
+    return (value_32 >> 25) & 0x7F;
+}
+
+// Downscale 32-bit to 14-bit (for pitch bend)
+uint16_t midi_downscale_32to14(uint32_t value_32)
+{
+    // Right shift by 18 bits
+    return (value_32 >> 18) & 0x3FFF;
+}
+
+// Note On builder
+esp_err_t ump_build_midi2_note_on(uint8_t group, uint8_t channel, 
+                                   uint8_t note, uint16_t velocity,
+                                   uint8_t attr_type, uint16_t attr_data,
+                                   ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4 (MIDI 2.0)
+                       ((group & 0x0F) << 24) |          // Group
+                       (0x90 << 16) |                    // Status: Note On
+                       ((channel & 0x0F) << 16) |        // Channel
+                       ((note & 0x7F) << 8) |            // Note number
+                       (attr_type & 0xFF);               // Attribute type
+    
+    packet->words[1] = ((uint32_t)velocity << 16) |     // Velocity (16-bit)
+                       (attr_data & 0xFFFF);             // Attribute data
+    
+    packet->num_words = 2;  // 2 words = 8 bytes
+    return ESP_OK;
+}
+
+// Control Change builder
+esp_err_t ump_build_midi2_control_change(uint8_t group, uint8_t channel,
+                                          uint8_t controller, uint32_t value,
+                                          ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4
+                       ((group & 0x0F) << 24) |          // Group
+                       (0xB0 << 16) |                    // Status: CC
+                       ((channel & 0x0F) << 16) |        // Channel
+                       ((controller & 0x7F) << 8);       // Controller index
+    
+    packet->words[1] = value;                           // 32-bit value
+    
+    packet->num_words = 2;
+    return ESP_OK;
+}
+
+// Pitch Bend builder
+esp_err_t ump_build_midi2_pitch_bend(uint8_t group, uint8_t channel,
+                                      uint32_t value, ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4
+                       ((group & 0x0F) << 24) |          // Group
+                       (0xE0 << 16) |                    // Status: Pitch Bend
+                       ((channel & 0x0F) << 16);         // Channel
+    
+    packet->words[1] = value;                           // 32-bit pitch bend
+    
+    packet->num_words = 2;
+    return ESP_OK;
+}
+
+// Note Off builder
+esp_err_t ump_build_midi2_note_off(uint8_t group, uint8_t channel,
+                                    uint8_t note, uint16_t velocity,
+                                    uint8_t attr_type, uint16_t attr_data,
+                                    ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4 (MIDI 2.0)
+                       ((group & 0x0F) << 24) |          // Group
+                       (0x80 << 16) |                    // Status: Note Off
+                       ((channel & 0x0F) << 16) |        // Channel
+                       ((note & 0x7F) << 8) |            // Note number
+                       (attr_type & 0xFF);               // Attribute type
+    
+    packet->words[1] = ((uint32_t)velocity << 16) |     // Velocity (16-bit)
+                       (attr_data & 0xFFFF);             // Attribute data
+    
+    packet->num_words = 2;  // 2 words = 8 bytes
+    return ESP_OK;
+}
+
+// Polyphonic Pressure / Poly Aftertouch builder
+esp_err_t ump_build_midi2_poly_pressure(uint8_t group, uint8_t channel,
+                                         uint8_t note, uint32_t pressure,
+                                         ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4
+                       ((group & 0x0F) << 24) |          // Group
+                       (0xA0 << 16) |                    // Status: Poly Pressure
+                       ((channel & 0x0F) << 16) |        // Channel
+                       ((note & 0x7F) << 8);             // Note number
+                       // Byte 4 is reserved (0x00)
+    
+    packet->words[1] = pressure;                        // 32-bit pressure value
+    
+    packet->num_words = 2;
+    return ESP_OK;
+}
+
+// Program Change builder
+esp_err_t ump_build_midi2_program_change(uint8_t group, uint8_t channel,
+                                          uint8_t program, bool bank_valid,
+                                          uint8_t bank_msb, uint8_t bank_lsb,
+                                          ump_packet_t *packet)
+{
+    uint8_t option_flags = bank_valid ? 0x01 : 0x00;
+    
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4
+                       ((group & 0x0F) << 24) |          // Group
+                       (0xC0 << 16) |                    // Status: Program Change
+                       ((channel & 0x0F) << 16) |        // Channel
+                       (option_flags << 8) |             // Option flags (bit 0 = bank valid)
+                       (program & 0x7F);                 // Program number
+    
+    packet->words[1] = ((bank_msb & 0x7F) << 8) |      // Bank MSB
+                       (bank_lsb & 0x7F);                // Bank LSB
+                       // Upper bytes reserved (0x00)
+    
+    packet->num_words = 2;
+    return ESP_OK;
+}
+
+// Channel Pressure / Channel Aftertouch builder
+esp_err_t ump_build_midi2_channel_pressure(uint8_t group, uint8_t channel,
+                                            uint32_t pressure,
+                                            ump_packet_t *packet)
+{
+    packet->words[0] = (0x4 << 28) |                    // MT = 0x4
+                       ((group & 0x0F) << 24) |          // Group
+                       (0xD0 << 16) |                    // Status: Channel Pressure
+                       ((channel & 0x0F) << 16);         // Channel
+                       // Bytes 3-4 reserved (0x00)
+    
+    packet->words[1] = pressure;                        // 32-bit pressure value
+    
+    packet->num_words = 2;
+    return ESP_OK;
+}
+
+esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg, ump_packet_t *packet)
+{
+    if (!msg || !packet) return ESP_ERR_INVALID_ARG;
+    
+    uint8_t status = msg->status;
+    
+    // System messages use Message Type 0x1 (32-bit / 4-byte UMP)
+    packet->num_words = 1;
+    
+    switch (status) {
+        // System Common Messages (0xF1 - 0xF7)
+        
+        case MIDI_STATUS_MTC_QUARTER_FRAME: // MIDI Time Code
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group (use 0 for system)
+                               (0xF1 << 16) |                    // Status
+                               ((msg->data.bytes[0] & 0x7F) << 8);  // Time code value
+            break;
+            
+        case MIDI_STATUS_SONG_POSITION: // Song Position Pointer
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xF2 << 16) |                    // Status
+                               ((msg->data.bytes[0] & 0x7F) << 8) |  // LSB
+                               (msg->data.bytes[1] & 0x7F);          // MSB
+            break;
+            
+        case MIDI_STATUS_SONG_SELECT: // Song Select
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xF3 << 16) |                    // Status
+                               ((msg->data.bytes[0] & 0x7F) << 8);   // Song number
+            break;
+            
+        case MIDI_STATUS_TUNE_REQUEST: // Tune Request
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xF6 << 16);                     // Status
+            break;
+            
+        // System Real-Time Messages (0xF8 - 0xFF)
+        
+        case MIDI_STATUS_TIMING_CLOCK: // Timing Clock
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xF8 << 16);                     // Status
+            break;
+            
+        case MIDI_STATUS_START: // Start
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xFA << 16);                     // Status
+            break;
+            
+        case MIDI_STATUS_CONTINUE: // Continue
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xFB << 16);                     // Status
+            break;
+            
+        case MIDI_STATUS_STOP: // Stop
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xFC << 16);                     // Status
+            break;
+            
+        case MIDI_STATUS_ACTIVE_SENSING: // Active Sensing
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xFE << 16);                     // Status
+            break;
+            
+        case MIDI_STATUS_SYSTEM_RESET: // System Reset
+            packet->words[0] = (0x1 << 28) |                    // MT = 0x1
+                               (0 << 24) |                       // Group
+                               (0xFF << 16);                     // Status
+            break;
+            
+        default:
+            return ESP_ERR_NOT_SUPPORTED;
+    }
+    
+    return ESP_OK;
+}
+
+
+// MIDI 1.0 → MIDI 2.0 UMP Translation
+// Based on MIDI 2.0 Spec Appendix D.3
+esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet) 
+{
+    if (!msg || !packet) return ESP_ERR_INVALID_ARG;
+    
+    uint8_t status = msg->status & 0xF0;
+    uint8_t channel = msg->channel & 0x0F;
+    
+    if (status >= 0xF0) {
+        return midi_translate_system_messages_1to2(msg, packet);
+    }
+
+    switch (status) {
+        
+        // Note Off (0x80)
+        case MIDI_STATUS_NOTE_OFF: {
+            uint8_t note = msg->data.bytes[0] & 0x7F;
+            uint16_t velocity = midi_upscale_7to16(msg->data.bytes[1] & 0x7F);
+            return ump_build_midi2_note_off(0, channel, note, velocity, 0, 0, packet);
+        }
+        
+        // Note On (0x90)
+        case MIDI_STATUS_NOTE_ON: {
+            uint8_t note = msg->data.bytes[0] & 0x7F;
+            uint8_t vel_7bit = msg->data.bytes[1] & 0x7F;
+            
+            // Special case: Note On with velocity 0 = Note Off
+            if (vel_7bit == 0) {
+                return ump_build_midi2_note_off(0, channel, note, 0x8000, 0, 0, packet);
+            }
+            
+            // Upscale velocity: 0x01 → 0x0200, 0x7F → 0xFFFF
+            uint16_t velocity = midi_upscale_7to16(vel_7bit);
+            
+            // Attribute Type = 0, Attribute Data = 0 (unless Profile specifies otherwise)
+            return ump_build_midi2_note_on(0, channel, note, velocity, 0, 0, packet);
+        }
+        
+        // Polyphonic Aftertouch / Poly Pressure (0xA0)
+        case MIDI_STATUS_POLY_PRESSURE: {
+            uint8_t note = msg->data.bytes[0] & 0x7F;
+            uint32_t pressure = midi_upscale_7to32(msg->data.bytes[1] & 0x7F);
+            return ump_build_midi2_poly_pressure(0, channel, note, pressure, packet);
+        }
+        
+        // Control Change (0xB0)
+        case MIDI_STATUS_CONTROL_CHANGE: {
+            uint8_t controller = msg->data.bytes[0] & 0x7F;
+            uint32_t value = midi_upscale_7to32(msg->data.bytes[1] & 0x7F);
+            
+            // Skip controllers used for RPN/NRPN compound messages in MIDI 1.0
+            // These are handled separately (CC 6, 38, 98, 99, 100, 101)
+            if (controller == 6 || controller == 38 || 
+                controller == 98 || controller == 99 || 
+                controller == 100 || controller == 101) {
+                // These should be handled by RPN/NRPN state machine
+                // Return NOT_SUPPORTED to indicate special handling needed
+                return ESP_ERR_NOT_SUPPORTED;
+            }
+            
+            // Skip Bank Select (handled in Program Change)
+            if (controller == 0 || controller == 32) {
+                return ESP_ERR_NOT_SUPPORTED;
+            }
+            
+            return ump_build_midi2_control_change(0, channel, controller, value, packet);
+        }
+        
+        // Program Change (0xC0)
+        case MIDI_STATUS_PROGRAM_CHANGE: {
+            uint8_t program = msg->data.bytes[0] & 0x7F;
+            
+            // Note: Bank Select should be tracked separately and included here
+            // For simple translation without bank tracking:
+            // Bank Valid = 0, Bank MSB = 0, Bank LSB = 0
+            return ump_build_midi2_program_change(0, channel, program, 
+                                                   false, 0, 0, packet);
+        }
+        
+        // Channel Pressure / Aftertouch (0xD0)
+        case MIDI_STATUS_CHANNEL_PRESSURE: {
+            uint32_t pressure = midi_upscale_7to32(msg->data.bytes[0] & 0x7F);
+            return ump_build_midi2_channel_pressure(0, channel, pressure, packet);
+        }
+        
+        // Pitch Bend (0xE0)
+        case MIDI_STATUS_PITCH_BEND: {
+            // MIDI 1.0: LSB then MSB (little-endian)
+            uint8_t lsb = msg->data.bytes[0] & 0x7F;
+            uint8_t msb = msg->data.bytes[1] & 0x7F;
+            uint16_t value_14bit = (msb << 7) | lsb;
+            
+            // Upscale 14-bit to 32-bit
+            uint32_t pitch_bend = midi_upscale_14to32(value_14bit);
+            
+            return ump_build_midi2_pitch_bend(0, channel, pitch_bend, packet);
+        }
+        
+        default:
+            return ESP_ERR_NOT_SUPPORTED;
+    }
+}
+
+// MIDI 2.0 → MIDI 1.0 Translation (Downscaling)
+esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
+{
     if (!packet || !msg) return ESP_ERR_INVALID_ARG;
-    if (packet->message_type == UMP_MT_MIDI2_CHANNEL_VOICE) {
+    
+    uint8_t mt = (packet->words[0] >> 28) & 0x0F;
+    
+    // Handle MIDI 2.0 Channel Voice Messages (MT 0x4)
+    if (mt == 0x4) {
         uint32_t word0 = packet->words[0];
         uint32_t word1 = packet->words[1];
-        uint8_t status = (word0 >> 16) & 0xFF;
-        uint8_t channel = (word0 >> 8) & 0xF;
-        uint8_t note = (word0 >> 8) & 0xFF;
-        uint16_t velocity16 = word1 >> 16;
-        uint8_t velocity7 = midi_downscale_16to7(velocity16);
-        msg->status = MIDI_STATUS_NOTE_ON | channel;
-        msg->channel = channel;
-        msg->data.bytes[0] = note;
-        msg->data.bytes[1] = velocity7;
-        return ESP_OK;
+        
+        uint8_t group = (word0 >> 24) & 0x0F;
+        uint8_t status = (word0 >> 16) & 0xF0;
+        uint8_t channel = (word0 >> 16) & 0x0F;
+        
+        switch (status) {
+            // Note Off (0x80)
+            case 0x80: {
+                uint8_t note = (word0 >> 8) & 0x7F;
+                uint16_t velocity16 = (word1 >> 16) & 0xFFFF;
+                uint8_t velocity7 = midi_downscale_16to7(velocity16);
+                
+                msg->status = 0x80 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = note;
+                msg->data.bytes[1] = velocity7;
+                return ESP_OK;
+            }
+            
+            // Note On (0x90)
+            case 0x90: {
+                uint8_t note = (word0 >> 8) & 0x7F;
+                uint16_t velocity16 = (word1 >> 16) & 0xFFFF;
+                uint8_t velocity7 = midi_downscale_16to7(velocity16);
+                
+                // Special case: if downscaled velocity is 0, use 1 instead
+                if (velocity7 == 0) {
+                    velocity7 = 1;
+                }
+                
+                msg->status = 0x90 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = note;
+                msg->data.bytes[1] = velocity7;
+                return ESP_OK;
+            }
+            
+            // Poly Pressure (0xA0)
+            case 0xA0: {
+                uint8_t note = (word0 >> 8) & 0x7F;
+                uint32_t pressure32 = word1;
+                uint8_t pressure7 = midi_downscale_32to7(pressure32);
+                
+                msg->status = 0xA0 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = note;
+                msg->data.bytes[1] = pressure7;
+                return ESP_OK;
+            }
+            
+            // Control Change (0xB0)
+            case 0xB0: {
+                uint8_t controller = (word0 >> 8) & 0x7F;
+                uint32_t value32 = word1;
+                uint8_t value7 = midi_downscale_32to7(value32);
+                
+                msg->status = 0xB0 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = controller;
+                msg->data.bytes[1] = value7;
+                return ESP_OK;
+            }
+            
+            // Registered Controller (RPN) (0x20)
+            case 0x20: {
+                // Translate to MIDI 1.0 RPN sequence (3 messages)
+                // This requires multiple MIDI 1.0 messages
+                // Return NOT_SUPPORTED to indicate special handling needed
+                return ESP_ERR_NOT_SUPPORTED;
+            }
+            
+            // Assignable Controller (NRPN) (0x30)
+            case 0x30: {
+                // Translate to MIDI 1.0 NRPN sequence (3 messages)
+                // This requires multiple MIDI 1.0 messages
+                // Return NOT_SUPPORTED to indicate special handling needed
+                return ESP_ERR_NOT_SUPPORTED;
+            }
+            
+            // Program Change (0xC0)
+            case 0xC0: {
+                uint8_t program = word0 & 0x7F;
+                bool bank_valid = (word0 >> 8) & 0x01;
+                
+                if (!bank_valid) {
+                    // Simple program change without bank
+                    msg->status = 0xC0 | channel;
+                    msg->channel = channel;
+                    msg->data.bytes[0] = program;
+                    return ESP_OK;
+                } else {
+                    // Bank select included - requires multiple messages
+                    return ESP_ERR_NOT_SUPPORTED;
+                }
+            }
+            
+            // Channel Pressure (0xD0)
+            case 0xD0: {
+                uint32_t pressure32 = word1;
+                uint8_t pressure7 = midi_downscale_32to7(pressure32);
+                
+                msg->status = 0xD0 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = pressure7;
+                return ESP_OK;
+            }
+            
+            // Pitch Bend (0xE0)
+            case 0xE0: {
+                uint32_t pitch_bend32 = word1;
+                uint16_t pitch_bend14 = midi_downscale_32to14(pitch_bend32);
+                
+                // MIDI 1.0 Pitch Bend is LSB first (little-endian)
+                uint8_t lsb = pitch_bend14 & 0x7F;
+                uint8_t msb = (pitch_bend14 >> 7) & 0x7F;
+                
+                msg->status = 0xE0 | channel;
+                msg->channel = channel;
+                msg->data.bytes[0] = lsb;
+                msg->data.bytes[1] = msb;
+                return ESP_OK;
+            }
+            
+            // Per-Note Controllers and Management (cannot translate)
+            case 0x00: // Registered Per-Note Controller
+            case 0x10: // Assignable Per-Note Controller
+            case 0x40: // Relative Registered Controller
+            case 0x50: // Relative Assignable Controller
+            case 0x60: // Per-Note Pitch Bend
+            case 0xF0: // Per-Note Management
+                return ESP_ERR_NOT_SUPPORTED;
+            
+            default:
+                return ESP_ERR_NOT_SUPPORTED;
+        }
     }
-    // Add more as needed
+    
+    // Handle System Messages (MT 0x1)
+    else if (mt == 0x1) {
+        uint32_t word0 = packet->words[0];
+        uint8_t status = (word0 >> 16) & 0xFF;
+        
+        msg->status = status;
+        
+        switch (status) {
+            case 0xF1: // MIDI Time Code
+                msg->data.bytes[0] = (word0 >> 8) & 0x7F;
+                return ESP_OK;
+                
+            case 0xF2: // Song Position Pointer
+                msg->data.bytes[0] = (word0 >> 8) & 0x7F;  // LSB
+                msg->data.bytes[1] = word0 & 0x7F;          // MSB
+                return ESP_OK;
+                
+            case 0xF3: // Song Select
+                msg->data.bytes[0] = (word0 >> 8) & 0x7F;
+                return ESP_OK;
+                
+            case 0xF6: // Tune Request
+            case 0xF8: // Timing Clock
+            case 0xFA: // Start
+            case 0xFB: // Continue
+            case 0xFC: // Stop
+            case 0xFE: // Active Sensing
+            case 0xFF: // System Reset
+                // No data bytes
+                return ESP_OK;
+                
+            default:
+                return ESP_ERR_NOT_SUPPORTED;
+        }
+    }
+    
     return ESP_ERR_NOT_SUPPORTED;
 }
+
