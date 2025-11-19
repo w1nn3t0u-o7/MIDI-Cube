@@ -3,7 +3,6 @@
  * @brief MIDI 1.0 Protocol Definitions and Constants
  * 
  * Based on MIDI 1.0 Detailed Specification Document Version 4.2.1
- * Reference: M1_v4-2-1_MIDI_1-0_Detailed_Specification_96-1-4.pdf
  */
 
 #ifndef MIDI_DEFS_H
@@ -29,14 +28,18 @@
 #define MIDI_STATUS_MTC_QUARTER_FRAME   0xF1  /**< MIDI Time Code Quarter Frame */
 #define MIDI_STATUS_SONG_POSITION       0xF2  /**< Song Position Pointer */
 #define MIDI_STATUS_SONG_SELECT         0xF3  /**< Song Select */
+#define MIDI_STATUS_UNDEFINED_F4        0xF4  /**< Undefined System Common */
+#define MIDI_STATUS_UNDEFINED_F5        0xF5  /**< Undefined System Common */
 #define MIDI_STATUS_TUNE_REQUEST        0xF6  /**< Tune Request */
 #define MIDI_STATUS_SYSEX_END           0xF7  /**< End of System Exclusive (EOX) */
 
 /* System Real-Time Messages (F8 - FF) */
 #define MIDI_STATUS_TIMING_CLOCK        0xF8  /**< Timing Clock (24 per quarter note) */
+#define MIDI_STATUS_UNDEFINED_F9        0xF9  /**< Undefined Real-Time */
 #define MIDI_STATUS_START               0xFA  /**< Start */
 #define MIDI_STATUS_CONTINUE            0xFB  /**< Continue */
 #define MIDI_STATUS_STOP                0xFC  /**< Stop */
+#define MIDI_STATUS_UNDEFINED_FD        0xFD  /**< Undefined Real-Time */
 #define MIDI_STATUS_ACTIVE_SENSING      0xFE  /**< Active Sensing */
 #define MIDI_STATUS_SYSTEM_RESET        0xFF  /**< System Reset */
 

@@ -6,8 +6,9 @@
 #ifndef MIDI_MESSAGE_H
 #define MIDI_MESSAGE_H
 
-#include "midi_types.h"
 #include "esp_err.h"
+
+#include "midi_types.h"
 
 /**
  * @brief Create a Note On message
