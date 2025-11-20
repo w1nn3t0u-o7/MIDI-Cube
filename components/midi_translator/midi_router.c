@@ -37,7 +37,7 @@ void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
         ESP_LOGW(TAG, "Router queue full - packet dropped [cable:%d]", packet.cable);
     } else {
         ESP_LOGD(TAG, "Packet sent to router [cable:%d]: %02X %02X %02X", 
-                 packet.cable, packet.data.midi1.status, packet.data.midi1.data.bytes[0], packet.data.midi1.data.bytes[1]);
+                 packet.cable, packet.data.midi1.status, packet.data.midi1.data[0], packet.data.midi1.data[1]);
     }
 }
 
@@ -148,17 +148,17 @@ static void midi_router_task(void *arg)
                 ESP_LOGD(TAG, "UART→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
                          packet.data.midi1.status, 
                          packet.data.midi1.channel,
-                         packet.data.midi1.data.bytes[0],
-                         packet.data.midi1.data.bytes[1]);
+                         packet.data.midi1.data[0],
+                         packet.data.midi1.data[1]);
                 
                 // Option 1: Loop back to UART TX (echo)
-                if (router_state.uart_loopback) {
-                    ret = midi_uart_send_message(&packet.data.midi1);
-                    if (ret != ESP_OK) {
-                        ESP_LOGW(TAG, "Failed to send UART echo: %s", 
-                                 esp_err_to_name(ret));
-                    }
-                }
+                // if (router_state.uart_loopback) {
+                //     ret = midi_uart_send_message(&packet.data.midi1);
+                //     if (ret != ESP_OK) {
+                //         ESP_LOGW(TAG, "Failed to send UART echo: %s", 
+                //                  esp_err_to_name(ret));
+                //     }
+                // }
                 
                 // Option 2: Send to USB (MIDI 1.0 format)
                 if (router_state.enable_usb) {
@@ -197,8 +197,8 @@ static void midi_router_task(void *arg)
                 ESP_LOGD(TAG, "USB→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
                          packet.data.midi1.status,
                          packet.data.midi1.channel,
-                         packet.data.midi1.data.bytes[0],
-                         packet.data.midi1.data.bytes[1]);
+                         packet.data.midi1.data[0],
+                         packet.data.midi1.data[1]);
                 
                 // Option 1: Send to UART
                 if (router_state.enable_uart) {

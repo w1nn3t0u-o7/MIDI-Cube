@@ -40,7 +40,6 @@ esp_err_t ump_parser_parse_packet(const uint32_t *words, ump_packet_t *packet) {
     packet->num_words = num_words;
     packet->message_type = mt;
     packet->group = UMP_GET_GROUP(words[0]);
-    packet->timestamp_us = 0; // Set externally if needed
 
     return ESP_OK;
 }

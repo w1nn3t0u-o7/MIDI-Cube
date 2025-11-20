@@ -28,21 +28,10 @@ typedef enum {
  * Represents a complete, parsed MIDI message with all relevant data
  */
 typedef struct midi_message {
-    /* Message Classification */
     midi_message_type_t type;      /**< Message type classification */
     uint8_t status;                /**< Full status byte (including channel) */
     uint8_t channel;               /**< MIDI channel (0-15, representing 1-16) */
-    
-    union {
-        uint8_t bytes[2];            /**< Data bytes (up to 2 for most messages) */
-
-        /* System Exclusive */
-        struct {
-            uint8_t manufacturer_id; /**< Manufacturer ID (1 or 3 bytes(NOT SUPPORTED)) */
-            uint8_t *data;         /**< Pointer to SysEx data */
-        uint16_t length;       /**< Length of SysEx data */
-        } sysex;
-    } data;
+    uint8_t data[2];              /**< Up to 2 data bytes */
 } midi_message_t;
 
 #endif /* MIDI_TYPES_H */

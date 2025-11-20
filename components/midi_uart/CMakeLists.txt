@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "midi_uart.c"
     INCLUDE_DIRS "include"
-    REQUIRES midi_core esp_driver_uart esp_driver_gpio midi_router
+    REQUIRES midi_core esp_driver_uart esp_driver_gpio midi_translator
 )

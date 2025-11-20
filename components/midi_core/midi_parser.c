@@ -57,20 +57,15 @@ uint8_t midi_get_data_byte_count(uint8_t status) {
 /**
  * @brief Initialize parser state
  */
-esp_err_t midi_parser_init(midi_parser_state_t *state,
-                           uint8_t *sysex_buffer,
-                           uint16_t sysex_buffer_size) {
+esp_err_t midi_parser_init(midi_parser_state_t *state)
+{
     if (!state) {
         return ESP_ERR_INVALID_ARG;
     }
     
     memset(state, 0, sizeof(midi_parser_state_t));
     
-    state->sysex_buffer = sysex_buffer;
-    state->sysex_buffer_size = sysex_buffer_size;
-    
-    ESP_LOGI(TAG, "MIDI parser initialized (SysEx buffer: %u bytes)",
-             sysex_buffer_size);
+    ESP_LOGI(TAG, "MIDI parser initialized");
     
     return ESP_OK;
 }
@@ -87,7 +82,6 @@ esp_err_t midi_parser_reset(midi_parser_state_t *state) {
     state->data_index = 0;
     state->expected_data_bytes = 0;
     state->in_sysex = false;
-    state->sysex_index = 0;
     
     ESP_LOGD(TAG, "Parser state reset");
     
@@ -121,7 +115,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         msg->status = byte;
         
         *message_complete = true;
-        state->messages_parsed++;
         
         /* Running status and data collection NOT affected */
         return ESP_OK;
@@ -133,10 +126,9 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         /* === SYSTEM EXCLUSIVE START (0xF0) === */
         if (byte == MIDI_STATUS_SYSEX_START) {
             state->in_sysex = true;
-            state->sysex_index = 0;
             state->running_status = 0;  // Clear running status (spec page 5)
-            ESP_LOGD(TAG, "SysEx Start");
-            return ESP_OK;
+            ESP_LOGW(TAG, "SysEx Start received. SysEx handling not implemented.");
+            return ESP_ERR_NOT_SUPPORTED;
         }
         
         /* === SYSTEM EXCLUSIVE END (0xF7) === */
@@ -148,15 +140,12 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                 memset(msg, 0, sizeof(midi_message_t));
                 msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
                 msg->status = MIDI_STATUS_SYSEX_START;
-                msg->data.sysex.data = state->sysex_buffer;
-                msg->data.sysex.length = state->sysex_index;
                 
                 *message_complete = true;
-                state->messages_parsed++;
                 
-                ESP_LOGD(TAG, "SysEx End (%u bytes)", state->sysex_index);
+                ESP_LOGW(TAG, "SysEx End received. SysEx handling not implemented.");
             }
-            return ESP_OK;
+            return ESP_ERR_NOT_SUPPORTED;
         }
         
         /* === SYSTEM COMMON MESSAGES (0xF1-0xF6) === */
@@ -174,7 +163,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             /* Single-byte System Common messages */
             if (state->expected_data_bytes == 0) {
                 *message_complete = true;
-                state->messages_parsed++;
             }
             
             return ESP_OK;
@@ -196,7 +184,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         
         /* Undefined status bytes should be ignored (spec page 6) */
         ESP_LOGW(TAG, "Undefined status byte: 0x%02X", byte);
-        state->parse_errors++;
         return ESP_ERR_NOT_SUPPORTED;
     }
     
@@ -205,15 +192,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         
         /* Handle SysEx data */
         if (state->in_sysex) {
-            if (state->sysex_buffer && state->sysex_index < state->sysex_buffer_size) {
-                state->sysex_buffer[state->sysex_index++] = byte;
-            } else if (!state->sysex_buffer) {
-                ESP_LOGW(TAG, "SysEx data received but no buffer allocated");
-            } else {
-                ESP_LOGW(TAG, "SysEx buffer overflow");
-                state->parse_errors++;
-            }
-            return ESP_OK;
+            ESP_LOGW(TAG, "SysEx data byte received. SysEx handling not implemented.");
+            return ESP_ERR_NOT_SUPPORTED;
         }
         
         /* Data byte without valid running status - ignore (spec page 6) */
@@ -234,11 +214,10 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             /* Message complete - fill in structure */
             msg->status = state->running_status;
             msg->channel = state->running_status & MIDI_CHANNEL_MASK;
-            msg->data.bytes[0] = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
-            msg->data.bytes[1] = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
+            msg->data[0] = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
+            msg->data[1] = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
             
             *message_complete = true;
-            state->messages_parsed++;
             state->data_index = 0;  // Ready for next message with running status
             
             return ESP_OK;

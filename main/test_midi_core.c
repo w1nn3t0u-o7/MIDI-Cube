@@ -36,8 +36,7 @@ void test_midi_parser_single_message(void) {
     ESP_LOGI(TAG, "=== Test 1: MIDI 1.0 Parser - Single Message ===");
     
     midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
+    midi_parser_init(&parser);
     
     midi_message_t msg;
     bool complete;
@@ -60,12 +59,12 @@ void test_midi_parser_single_message(void) {
         ESP_LOGI(TAG, "✓ Message parsed successfully!");
         ESP_LOGI(TAG, "  Status: 0x%02X", msg.status);
         ESP_LOGI(TAG, "  Channel: %d", msg.channel);
-        ESP_LOGI(TAG, "  data.bytes[0] (Note): %d", msg.data.bytes[0]);
-        ESP_LOGI(TAG, "  data.bytes[1] (Velocity): %d", msg.data.bytes[1]);
+        ESP_LOGI(TAG, "  data[0] (Note): %d", msg.data[0]);
+        ESP_LOGI(TAG, "  data[1] (Velocity): %d", msg.data[1]);
         
         // Validate values
         if (msg.status == 0x90 && msg.channel == 0 && 
-            msg.data.bytes[0] == 60 && msg.data.bytes[1] == 100) {
+            msg.data[0] == 60 && msg.data[1] == 100) {
             ESP_LOGI(TAG, "✓✓ All values correct!");
         } else {
             ESP_LOGE(TAG, "✗ Values incorrect!");
@@ -82,8 +81,7 @@ void test_midi_parser_running_status(void) {
     ESP_LOGI(TAG, "=== Test 2: MIDI 1.0 Parser - Running Status ===");
     
     midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
+    midi_parser_init(&parser);
     
     midi_message_t msg;
     bool complete;
@@ -102,7 +100,7 @@ void test_midi_parser_running_status(void) {
         if (complete) {
             message_count++;
             ESP_LOGI(TAG, "Message %d: Note %d, Velocity %d", 
-                     message_count, msg.data.bytes[0], msg.data.bytes[1]);
+                     message_count, msg.data[0], msg.data[1]);
         }
     }
     
@@ -122,8 +120,7 @@ void test_midi_parser_realtime(void) {
     ESP_LOGI(TAG, "=== Test 3: MIDI 1.0 Parser - Real-Time Injection ===");
     
     midi_parser_state_t parser;
-    uint8_t sysex_buffer[128];
-    midi_parser_init(&parser, sysex_buffer, sizeof(sysex_buffer));
+    midi_parser_init(&parser);
     
     midi_message_t msg;
     bool complete;
@@ -146,7 +143,7 @@ void test_midi_parser_realtime(void) {
                 ESP_LOGI(TAG, "  Clock message received (correct!)");
             } else if (msg.status == 0x90) {
                 note_msg_count++;
-                ESP_LOGI(TAG, "  Note On received: Note %d, Vel %d", msg.data.bytes[0], msg.data.bytes[1]);
+                ESP_LOGI(TAG, "  Note On received: Note %d, Vel %d", msg.data[0], msg.data[1]);
             }
         }
     }
@@ -219,14 +216,14 @@ void test_translation_1to2(void) {
         .type = MIDI_MSG_TYPE_CHANNEL,
         .status = 0x90,
         .channel = 0,
-        .data.bytes[0] = 60,    // Middle C
-        .data.bytes[1] = 64,    // Center velocity (7-bit)
+        .data[0] = 60,    // Middle C
+        .data[1] = 64,    // Center velocity (7-bit)
     };
     
     ESP_LOGI(TAG, "Input MIDI 1.0:");
     ESP_LOGI(TAG, "  Status: 0x%02X", midi1_msg.status);
-    ESP_LOGI(TAG, "  Note: %d", midi1_msg.data.bytes[0]);
-    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_msg.data.bytes[1]);
+    ESP_LOGI(TAG, "  Note: %d", midi1_msg.data[0]);
+    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_msg.data[1]);
     
     // Translate to MIDI 2.0
     ump_packet_t ump_out;
@@ -286,15 +283,15 @@ void test_translation_2to1(void) {
     ESP_LOGI(TAG, "✓ Translation successful!");
     ESP_LOGI(TAG, "Output MIDI 1.0:");
     ESP_LOGI(TAG, "  Status: 0x%02X", midi1_out.status);
-    ESP_LOGI(TAG, "  Note: %d", midi1_out.data.bytes[0]);
-    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_out.data.bytes[1]);
+    ESP_LOGI(TAG, "  Note: %d", midi1_out.data[0]);
+    ESP_LOGI(TAG, "  Velocity (7-bit): %d", midi1_out.data[1]);
     
     // 52428 >> 9 = 102
     uint8_t expected = velocity16 >> 9;
-    if (midi1_out.data.bytes[1] == expected) {
+    if (midi1_out.data[1] == expected) {
         ESP_LOGI(TAG, "✓✓ Downscaling correct! (52428 → %d)", expected);
     } else {
-        ESP_LOGE(TAG, "✗ Expected %d, got %d", expected, midi1_out.data.bytes[1]);
+        ESP_LOGE(TAG, "✗ Expected %d, got %d", expected, midi1_out.data[1]);
     }
     
     ESP_LOGI(TAG, "");

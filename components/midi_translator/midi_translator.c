@@ -229,22 +229,22 @@ esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg, ump_pac
             packet->words[0] = (0x1 << 28) |                    // MT = 0x1
                                (0 << 24) |                       // Group (use 0 for system)
                                (0xF1 << 16) |                    // Status
-                               ((msg->data.bytes[0] & 0x7F) << 8);  // Time code value
+                               ((msg->data[0] & 0x7F) << 8);  // Time code value
             break;
             
         case MIDI_STATUS_SONG_POSITION: // Song Position Pointer
             packet->words[0] = (0x1 << 28) |                    // MT = 0x1
                                (0 << 24) |                       // Group
                                (0xF2 << 16) |                    // Status
-                               ((msg->data.bytes[0] & 0x7F) << 8) |  // LSB
-                               (msg->data.bytes[1] & 0x7F);          // MSB
+                               ((msg->data[0] & 0x7F) << 8) |  // LSB
+                               (msg->data[1] & 0x7F);          // MSB
             break;
             
         case MIDI_STATUS_SONG_SELECT: // Song Select
             packet->words[0] = (0x1 << 28) |                    // MT = 0x1
                                (0 << 24) |                       // Group
                                (0xF3 << 16) |                    // Status
-                               ((msg->data.bytes[0] & 0x7F) << 8);   // Song number
+                               ((msg->data[0] & 0x7F) << 8);   // Song number
             break;
             
         case MIDI_STATUS_TUNE_REQUEST: // Tune Request
@@ -316,15 +316,15 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
         
         // Note Off (0x80)
         case MIDI_STATUS_NOTE_OFF: {
-            uint8_t note = msg->data.bytes[0] & 0x7F;
-            uint16_t velocity = midi_upscale_7to16(msg->data.bytes[1] & 0x7F);
+            uint8_t note = msg->data[0] & 0x7F;
+            uint16_t velocity = midi_upscale_7to16(msg->data[1] & 0x7F);
             return ump_build_midi2_note_off(0, channel, note, velocity, 0, 0, packet);
         }
         
         // Note On (0x90)
         case MIDI_STATUS_NOTE_ON: {
-            uint8_t note = msg->data.bytes[0] & 0x7F;
-            uint8_t vel_7bit = msg->data.bytes[1] & 0x7F;
+            uint8_t note = msg->data[0] & 0x7F;
+            uint8_t vel_7bit = msg->data[1] & 0x7F;
             
             // Special case: Note On with velocity 0 = Note Off
             if (vel_7bit == 0) {
@@ -340,15 +340,15 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
         
         // Polyphonic Aftertouch / Poly Pressure (0xA0)
         case MIDI_STATUS_POLY_PRESSURE: {
-            uint8_t note = msg->data.bytes[0] & 0x7F;
-            uint32_t pressure = midi_upscale_7to32(msg->data.bytes[1] & 0x7F);
+            uint8_t note = msg->data[0] & 0x7F;
+            uint32_t pressure = midi_upscale_7to32(msg->data[1] & 0x7F);
             return ump_build_midi2_poly_pressure(0, channel, note, pressure, packet);
         }
         
         // Control Change (0xB0)
         case MIDI_STATUS_CONTROL_CHANGE: {
-            uint8_t controller = msg->data.bytes[0] & 0x7F;
-            uint32_t value = midi_upscale_7to32(msg->data.bytes[1] & 0x7F);
+            uint8_t controller = msg->data[0] & 0x7F;
+            uint32_t value = midi_upscale_7to32(msg->data[1] & 0x7F);
             
             // Skip controllers used for RPN/NRPN compound messages in MIDI 1.0
             // These are handled separately (CC 6, 38, 98, 99, 100, 101)
@@ -370,7 +370,7 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
         
         // Program Change (0xC0)
         case MIDI_STATUS_PROGRAM_CHANGE: {
-            uint8_t program = msg->data.bytes[0] & 0x7F;
+            uint8_t program = msg->data[0] & 0x7F;
             
             // Note: Bank Select should be tracked separately and included here
             // For simple translation without bank tracking:
@@ -381,15 +381,15 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
         
         // Channel Pressure / Aftertouch (0xD0)
         case MIDI_STATUS_CHANNEL_PRESSURE: {
-            uint32_t pressure = midi_upscale_7to32(msg->data.bytes[0] & 0x7F);
+            uint32_t pressure = midi_upscale_7to32(msg->data[0] & 0x7F);
             return ump_build_midi2_channel_pressure(0, channel, pressure, packet);
         }
         
         // Pitch Bend (0xE0)
         case MIDI_STATUS_PITCH_BEND: {
             // MIDI 1.0: LSB then MSB (little-endian)
-            uint8_t lsb = msg->data.bytes[0] & 0x7F;
-            uint8_t msb = msg->data.bytes[1] & 0x7F;
+            uint8_t lsb = msg->data[0] & 0x7F;
+            uint8_t msb = msg->data[1] & 0x7F;
             uint16_t value_14bit = (msb << 7) | lsb;
             
             // Upscale 14-bit to 32-bit
@@ -428,8 +428,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0x80 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = note;
-                msg->data.bytes[1] = velocity7;
+                msg->data[0] = note;
+                msg->data[1] = velocity7;
                 return ESP_OK;
             }
             
@@ -446,8 +446,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0x90 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = note;
-                msg->data.bytes[1] = velocity7;
+                msg->data[0] = note;
+                msg->data[1] = velocity7;
                 return ESP_OK;
             }
             
@@ -459,8 +459,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0xA0 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = note;
-                msg->data.bytes[1] = pressure7;
+                msg->data[0] = note;
+                msg->data[1] = pressure7;
                 return ESP_OK;
             }
             
@@ -472,8 +472,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0xB0 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = controller;
-                msg->data.bytes[1] = value7;
+                msg->data[0] = controller;
+                msg->data[1] = value7;
                 return ESP_OK;
             }
             
@@ -502,7 +502,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                     // Simple program change without bank
                     msg->status = 0xC0 | channel;
                     msg->channel = channel;
-                    msg->data.bytes[0] = program;
+                    msg->data[0] = program;
                     return ESP_OK;
                 } else {
                     // Bank select included - requires multiple messages
@@ -517,7 +517,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0xD0 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = pressure7;
+                msg->data[0] = pressure7;
                 return ESP_OK;
             }
             
@@ -532,8 +532,8 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 msg->status = 0xE0 | channel;
                 msg->channel = channel;
-                msg->data.bytes[0] = lsb;
-                msg->data.bytes[1] = msb;
+                msg->data[0] = lsb;
+                msg->data[1] = msb;
                 return ESP_OK;
             }
             
@@ -560,16 +560,16 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
         
         switch (status) {
             case 0xF1: // MIDI Time Code
-                msg->data.bytes[0] = (word0 >> 8) & 0x7F;
+                msg->data[0] = (word0 >> 8) & 0x7F;
                 return ESP_OK;
                 
             case 0xF2: // Song Position Pointer
-                msg->data.bytes[0] = (word0 >> 8) & 0x7F;  // LSB
-                msg->data.bytes[1] = word0 & 0x7F;          // MSB
+                msg->data[0] = (word0 >> 8) & 0x7F;  // LSB
+                msg->data[1] = word0 & 0x7F;          // MSB
                 return ESP_OK;
                 
             case 0xF3: // Song Select
-                msg->data.bytes[0] = (word0 >> 8) & 0x7F;
+                msg->data[0] = (word0 >> 8) & 0x7F;
                 return ESP_OK;
                 
             case 0xF6: // Tune Request

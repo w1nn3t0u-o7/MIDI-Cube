@@ -29,13 +29,6 @@ typedef struct {
     
     /* System Exclusive handling */
     bool in_sysex;                 /**< Currently receiving SysEx */
-    uint8_t *sysex_buffer;         /**< SysEx data buffer */
-    uint16_t sysex_index;          /**< Current SysEx buffer position */
-    uint16_t sysex_buffer_size;    /**< Size of SysEx buffer */
-    
-    /* Statistics */
-    uint32_t messages_parsed;      /**< Total messages parsed */
-    uint32_t parse_errors;         /**< Parse error count */
 } midi_parser_state_t;
 
 /**
@@ -46,9 +39,7 @@ typedef struct {
  * @param sysex_buffer_size Size of SysEx buffer
  * @return ESP_OK on success, ESP_ERR_INVALID_ARG if state is NULL
  */
-esp_err_t midi_parser_init(midi_parser_state_t *state, 
-                           uint8_t *sysex_buffer, 
-                           uint16_t sysex_buffer_size);
+esp_err_t midi_parser_init(midi_parser_state_t *state);
 
 /**
  * @brief Reset parser state to initial conditions

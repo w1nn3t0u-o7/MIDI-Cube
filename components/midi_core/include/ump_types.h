@@ -24,7 +24,6 @@ typedef struct {
     uint8_t  num_words;              /**< Actual number of words (1-4) */
     uint8_t  message_type;           /**< Message Type (MT) field */
     uint8_t  group;                  /**< Group number (0-15), 0xFF if groupless */
-    uint32_t timestamp_us;           /**< Timestamp in microseconds (optional) */
 } ump_packet_t;
 
 /**

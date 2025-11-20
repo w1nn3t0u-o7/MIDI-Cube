@@ -54,8 +54,8 @@ static void midi_rx_task(void *arg)
 
                 msg.status = packet[1];
                 msg.channel = packet[1] & 0x0F;
-                msg.data.bytes[0] = packet[2];
-                msg.data.bytes[1] = packet[3];
+                msg.data[0] = packet[2];
+                msg.data[1] = packet[3];
 
                 
                 if (config.rx_callback) {
@@ -197,13 +197,13 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
             case 0xA0: // Poly Pressure (3 bytes)
             case 0xB0: // Control Change (3 bytes)
             case 0xE0: // Pitch Bend (3 bytes)
-                buffer[len++] = msg->data.bytes[0] & 0x7F;
-                buffer[len++] = msg->data.bytes[1] & 0x7F;
+                buffer[len++] = msg->data[0] & 0x7F;
+                buffer[len++] = msg->data[1] & 0x7F;
                 break;
                 
             case 0xC0: // Program Change (2 bytes)
             case 0xD0: // Channel Pressure (2 bytes)
-                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                buffer[len++] = msg->data[0] & 0x7F;
                 break;
                 
             default:
@@ -219,12 +219,12 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
                 
             case 0xF1: // MIDI Time Code Quarter Frame (2 bytes)
             case 0xF3: // Song Select (2 bytes)
-                buffer[len++] = msg->data.bytes[0] & 0x7F;
+                buffer[len++] = msg->data[0] & 0x7F;
                 break;
                 
             case 0xF2: // Song Position Pointer (3 bytes)
-                buffer[len++] = msg->data.bytes[0] & 0x7F;
-                buffer[len++] = msg->data.bytes[1] & 0x7F;
+                buffer[len++] = msg->data[0] & 0x7F;
+                buffer[len++] = msg->data[1] & 0x7F;
                 break;
                 
             case 0xF6: // Tune Request (1 byte)

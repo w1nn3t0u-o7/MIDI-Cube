@@ -25,7 +25,6 @@ esp_err_t ump_build_midi2_note_on(
     packet_out->num_words = 2;
     packet_out->message_type = UMP_MT_MIDI2_CHANNEL_VOICE;
     packet_out->group = group;
-    packet_out->timestamp_us = 0;
     return ESP_OK;
 }
 
