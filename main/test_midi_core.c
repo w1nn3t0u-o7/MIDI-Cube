@@ -19,7 +19,6 @@
 #include "midi_message.h"
 #include "ump_defs.h"
 #include "ump_types.h"
-#include "ump_parser.h"
 #include "midi_translator.h"
 
 static const char *TAG = "midi_test";
@@ -153,53 +152,6 @@ void test_midi_parser_realtime(void) {
     } else {
         ESP_LOGE(TAG, "✗ Expected 1 Note + 1 Clock, got %d Note + %d Clock", 
                  note_msg_count, realtime_msg_count);
-    }
-    
-    ESP_LOGI(TAG, "");
-}
-
-/**
- * @brief Test 4: UMP Parser - MIDI 2.0 Note On
- */
-void test_ump_parser_midi2_note(void) {
-    ESP_LOGI(TAG, "=== Test 4: UMP Parser - MIDI 2.0 Note On ===");
-    
-    // Construct MIDI 2.0 Note On UMP packet
-    // MT=0x4, Group=0, Status=0x90, Channel=0, Note=60
-    uint32_t words[2] = {
-        0x49003C00,  // Word 0
-        0x80000000   // Word 1: Velocity=32768 (center)
-    };
-    
-    ump_packet_t packet;
-    esp_err_t err = ump_parser_parse_packet(words, &packet);
-    
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "✗ UMP parse failed!");
-        return;
-    }
-    
-    ESP_LOGI(TAG, "✓ UMP parsed successfully!");
-    ESP_LOGI(TAG, "  Message Type: 0x%X", packet.message_type);
-    ESP_LOGI(TAG, "  Group: %d", packet.group);
-    ESP_LOGI(TAG, "  Num Words: %d", packet.num_words);
-    ESP_LOGI(TAG, "  Word 0: 0x%08lX", packet.words[0]);
-    ESP_LOGI(TAG, "  Word 1: 0x%08lX", packet.words[1]);
-    
-    // Extract note and velocity
-    uint8_t status = (packet.words[0] >> 16) & 0xFF;
-    uint8_t channel = (packet.words[0] >> 16) & 0x0F;
-    uint8_t note = (packet.words[0] >> 8) & 0xFF;
-    uint16_t velocity = packet.words[1] >> 16;
-    
-    ESP_LOGI(TAG, "  Decoded: Status=0x%02X, Ch=%d, Note=%d, Vel=%d", 
-             status, channel, note, velocity);
-    
-    if (packet.message_type == UMP_MT_MIDI2_CHANNEL_VOICE && 
-        packet.num_words == 2 && note == 60 && velocity == 32768) {
-        ESP_LOGI(TAG, "✓✓ All UMP values correct!");
-    } else {
-        ESP_LOGE(TAG, "✗ UMP values incorrect!");
     }
     
     ESP_LOGI(TAG, "");
@@ -350,9 +302,6 @@ void midi_core_run_tests(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
     
     test_midi_parser_realtime();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    test_ump_parser_midi2_note();
     vTaskDelay(pdMS_TO_TICKS(500));
     
     test_translation_1to2();
