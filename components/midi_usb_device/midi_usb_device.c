@@ -139,7 +139,7 @@ esp_err_t midi_usbd_init(void)
     // Start RX task
     BaseType_t task_ret = xTaskCreate(
         midi_rx_task,
-        "midi_rx",
+        "midi_usb_rx",
         4096,
         NULL,
         5,

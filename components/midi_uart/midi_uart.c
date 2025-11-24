@@ -182,7 +182,7 @@ static void midi_uart_rx_task(void *arg)
             }
         }
         // Timeout - continue loop (allows clean task deletion if needed)
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        //vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
