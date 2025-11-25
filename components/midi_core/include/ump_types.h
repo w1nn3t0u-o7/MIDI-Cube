@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "ump_defs.h"
-#include "midi_types.h"  // For backwards compatibility
+#include "midi_types.h"
 
 /**
  * @brief Universal MIDI Packet (UMP) Structure
@@ -22,8 +22,6 @@
 typedef struct {
     uint32_t words[UMP_MAX_WORDS];  /**< Up to 4 32-bit words */
     uint8_t  num_words;              /**< Actual number of words (1-4) */
-    uint8_t  message_type;           /**< Message Type (MT) field */
-    uint8_t  group;                  /**< Group number (0-15), 0xFF if groupless */
 } ump_packet_t;
 
 #endif /* UMP_TYPES_H */

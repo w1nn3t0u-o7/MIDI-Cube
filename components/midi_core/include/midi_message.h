@@ -1,6 +1,6 @@
 /**
  * @file midi_message.h
- * @brief MIDI Message Creation and Manipulation Functions
+ * @brief MIDI Message Serialization
  */
 
 #ifndef MIDI_MESSAGE_H

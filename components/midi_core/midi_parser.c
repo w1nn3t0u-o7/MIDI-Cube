@@ -111,8 +111,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
      * Spec: Page 30, "System Real Time Messages" */
     if (midi_is_realtime_message(byte)) {
         memset(msg, 0, sizeof(midi_message_t));
-        msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
-        msg->status = byte;
+        //msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
+        msg->status_byte = byte;
         
         *message_complete = true;
         
@@ -138,8 +138,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                 
                 /* Create SysEx message */
                 memset(msg, 0, sizeof(midi_message_t));
-                msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
-                msg->status = MIDI_STATUS_SYSEX_START;
+                //msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
+                msg->status_byte = MIDI_STATUS_SYSEX_START;
                 
                 *message_complete = true;
                 
@@ -157,8 +157,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             state->expected_data_bytes = midi_get_data_byte_count(byte);
             
             memset(msg, 0, sizeof(midi_message_t));
-            msg->type = MIDI_MSG_TYPE_SYSTEM_COMMON;
-            msg->status = byte;
+            //msg->type = MIDI_MSG_TYPE_SYSTEM_COMMON;
+            msg->status_byte = byte;
             
             /* Single-byte System Common messages */
             if (state->expected_data_bytes == 0) {
@@ -175,9 +175,8 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             state->data_index = 0;
             state->expected_data_bytes = midi_get_data_byte_count(byte);
             
-            msg->type = MIDI_MSG_TYPE_CHANNEL;
-            msg->status = byte;
-            msg->channel = byte & MIDI_CHANNEL_MASK;
+            //msg->type = MIDI_MSG_TYPE_CHANNEL;
+            msg->status_byte = byte;
             
             return ESP_OK;
         }
@@ -212,8 +211,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
             
             memset(msg, 0, sizeof(midi_message_t));
             /* Message complete - fill in structure */
-            msg->status = state->running_status;
-            msg->channel = state->running_status & MIDI_CHANNEL_MASK;
+            msg->status_byte = state->running_status;
             msg->data[0] = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;
             msg->data[1] = (state->expected_data_bytes >= 2) ? state->data_bytes[1] : 0;
             

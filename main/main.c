@@ -18,7 +18,6 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-//#include "nvs_flash.h"
 
 // MIDI Core
 #include "midi_types.h"
@@ -32,23 +31,17 @@
 #include "midi_ethernet.h"
 #include "midi_network.h"
 
-// Test suite (optional)
-#include "test_midi_core.h"
-
 static const char *TAG = "main";
-
-// Enable/disable test mode
-#define ENABLE_TEST_MODE  0
 
 //=============================================================================
 // Global Configuration
 //=============================================================================
 
 // Transport enable flags (set via Kconfig or runtime)
-#define ENABLE_UART      1
-#define ENABLE_USB       1
-#define ENABLE_WIFI      1
-#define ENABLE_ETHERNET  1
+// #define ENABLE_UART      1
+// #define ENABLE_USB       1
+// #define ENABLE_WIFI      1
+// #define ENABLE_ETHERNET  1
 
 static bool midi_initialized = false;
 

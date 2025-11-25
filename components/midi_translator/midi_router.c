@@ -37,7 +37,8 @@ void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
         ESP_LOGW(TAG, "Router queue full - packet dropped [cable:%d]", packet.cable);
     } else {
         ESP_LOGD(TAG, "Packet sent to router [cable:%d]: %02X %02X %02X", 
-                 packet.cable, packet.data.midi1.status, packet.data.midi1.data[0], packet.data.midi1.data[1]);
+                 packet.cable, packet.data.midi1.status_byte, 
+                 packet.data.midi1.data[0], packet.data.midi1.data[1]);
     }
 }
 
@@ -69,7 +70,7 @@ void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump)
  * Called by UART driver when MIDI message received
  */
 void uart_rx_callback(const midi_message_t *msg, void *ctx) {
-    ESP_LOGI(TAG, "UART RX callback: Status=0x%02X, Ch=%d", msg->status, msg->channel);
+    ESP_LOGI(TAG, "UART RX callback: Status=0x%02X", msg->status_byte);
     if (!router_state.packet_queue) {
         ESP_LOGW(TAG, "Router input queue not initialized");
         return;
@@ -146,8 +147,8 @@ static void midi_router_task(void *arg)
             // ============================================================
             case MIDI_TRANSPORT_UART: {
                 ESP_LOGD(TAG, "UART→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
-                         packet.data.midi1.status, 
-                         packet.data.midi1.channel,
+                         packet.data.midi1.status_byte, 
+                         MIDI_MSG_GET_CHANNEL(&packet.data.midi1),
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
@@ -195,8 +196,8 @@ static void midi_router_task(void *arg)
             // ============================================================
             case MIDI_TRANSPORT_USB: {
                 ESP_LOGD(TAG, "USB→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
-                         packet.data.midi1.status,
-                         packet.data.midi1.channel,
+                         packet.data.midi1.status_byte,
+                         MIDI_MSG_GET_CHANNEL(&packet.data.midi1),
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 

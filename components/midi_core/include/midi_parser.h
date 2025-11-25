@@ -9,9 +9,10 @@
 #ifndef MIDI_PARSER_H
 #define MIDI_PARSER_H
 
+#include "esp_err.h"
+
 #include "midi_types.h"
 #include "midi_defs.h"
-#include "esp_err.h"
 
 /**
  * @brief MIDI Parser State Machine
@@ -67,18 +68,6 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
                                  uint8_t byte,
                                  midi_message_t *msg,
                                  bool *message_complete);
-
-/**
- * @brief Check for Active Sensing timeout
- * 
- * Should be called periodically if Active Sensing is enabled
- * 
- * @param state Pointer to parser state
- * @param current_time_us Current timestamp in microseconds
- * @return true if Active Sensing timeout occurred
- */
-bool midi_parser_check_active_sensing_timeout(midi_parser_state_t *state, 
-                                               uint32_t current_time_us);
 
 /**
  * @brief Get expected data byte count for a status byte

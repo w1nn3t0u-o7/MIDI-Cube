@@ -12,8 +12,22 @@
 #include <stdint.h>
 #include "midi_defs.h"
 
-#define UMP_MT(ump) \
+/**
+ * @defgroup UMP_MACROS UMP Helper Macros
+ * @brief Macros for extracting UMP fields
+ * @{
+ */
+#define UMP_GET_MT(ump) \
         ((ump).words[0] >> 28)
+
+#define UMP_GET_GROUP(ump) \
+        (((ump).words[0] >> 24) & 0x0F)
+
+#define UMP_GET_STATUS_BYTE(ump) \
+        (((ump).words[0] >> 16) & 0xFF)
+
+#define UMP_GET_CHANNEL(ump) \
+        (((ump).words[0] >> 16) & 0x0F)
  
 #define UMP_NUM_WORDS_LOOKUP_TABLE \
         ((0U << 0) | (0U << 2) | (0U << 4) | (1U << 6) | \
@@ -21,8 +35,10 @@
         (1U << 16) | (1U << 18) | (1U << 20) | (2U << 22) | \
         (2U << 24) | (3U << 26) | (3U << 28) | (3U << 30))
  
-#define UMP_NUM_WORDS(ump) \
-        (1 + ((UMP_NUM_WORDS_LOOKUP_TABLE >> (2 * UMP_MT(ump))) & 3))
+#define UMP_GET_NUM_WORDS(ump) \
+        (1 + ((UMP_NUM_WORDS_LOOKUP_TABLE >> (2 * UMP_GET_MT(ump))) & 3))
+
+/** @} */
 
 /**
  * @defgroup UMP_MESSAGE_TYPES UMP Message Type (MT) Definitions
@@ -169,40 +185,6 @@
 #define UMP_FORMAT_START            0x1   /**< Start of multi-UMP message */
 #define UMP_FORMAT_CONTINUE         0x2   /**< Continue multi-UMP message */
 #define UMP_FORMAT_END              0x3   /**< End of multi-UMP message */
-
-/** @} */
-
-/**
- * @defgroup UMP_PROTOCOL_VERSION UMP Protocol Version
- * @{
- */
-
-#define UMP_VERSION_MAJOR           0x01  /**< UMP spec version 1.x */
-#define UMP_VERSION_MINOR           0x01  /**< UMP spec version x.1 */
-
-/** @} */
-
-/**
- * @defgroup UMP_BITFIELD_HELPERS Bit manipulation helpers for UMP
- * @{
- */
-
-/** Extract Message Type from first word (bits 31-28) */
-#define UMP_GET_MT(word0)           (((word0) >> 28) & 0x0F)
-
-/** Extract Group from first word (bits 27-24) - only for messages with Group */
-#define UMP_GET_GROUP(word0)        (((word0) >> 24) & 0x0F)
-
-/** Extract Status from first word (varies by MT) */
-#define UMP_GET_STATUS_BYTE(word0)  (((word0) >> 16) & 0xFF)
-
-/** Extract Channel from status byte */
-#define UMP_GET_CHANNEL(word0)      (((word0) >> 16) & 0x0F)
-
-/** Build first word with MT, Group, Status, Channel */
-#define UMP_BUILD_WORD0(mt, group, status, channel) \
-    (((uint32_t)(mt) << 28) | ((uint32_t)(group) << 24) | \
-     ((uint32_t)(status) << 16) | ((uint32_t)(channel) << 16))
 
 /** @} */
 

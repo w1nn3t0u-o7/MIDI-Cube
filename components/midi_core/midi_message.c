@@ -96,14 +96,14 @@ esp_err_t midi_message_to_bytes(const midi_message_t *msg,
     //-------------------------------------------------------------------------
     // All other messages (status + up to 2 data bytes)
     //-------------------------------------------------------------------------
-    uint8_t msg_length = get_message_length(msg->status);
+    uint8_t msg_length = get_message_length(msg->status_byte);
     
     if (buffer_size < msg_length) {
         return ESP_ERR_NO_MEM;
     }
     
     // Write status byte
-    buffer[0] = msg->status;
+    buffer[0] = msg->status_byte;
     
     // Write data bytes (if any)
     if (msg_length > 1) {

@@ -135,10 +135,9 @@ esp_err_t ump_build_midi2_pitch_bend(uint8_t group, uint8_t channel,
 }
 
 // Note Off builder
-esp_err_t ump_build_midi2_note_off(uint8_t group, uint8_t channel,
-                                    uint8_t note, uint16_t velocity,
-                                    uint8_t attr_type, uint16_t attr_data,
-                                    ump_packet_t *packet)
+esp_err_t ump_build_midi2_note_off(uint8_t group, uint8_t channel, uint8_t note,
+                                    uint16_t velocity, uint8_t attr_type,
+                                    uint16_t attr_data, ump_packet_t *packet)
 {
     packet->words[0] = (0x4 << 28) |                    // MT = 0x4 (MIDI 2.0)
                        ((group & 0x0F) << 24) |          // Group
@@ -216,12 +215,12 @@ esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg, ump_pac
 {
     if (!msg || !packet) return ESP_ERR_INVALID_ARG;
     
-    uint8_t status = msg->status;
+    uint8_t status_type = MIDI_MSG_GET_STATUS(msg);
     
     // System messages use Message Type 0x1 (32-bit / 4-byte UMP)
     packet->num_words = 1;
     
-    switch (status) {
+    switch (status_type) {
         // System Common Messages (0xF1 - 0xF7)
         
         case MIDI_STATUS_MTC_QUARTER_FRAME: // MIDI Time Code
@@ -304,14 +303,14 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
 {
     if (!msg || !packet) return ESP_ERR_INVALID_ARG;
     
-    uint8_t status = msg->status & 0xF0;
-    uint8_t channel = msg->channel & 0x0F;
+    uint8_t status_type = MIDI_MSG_GET_STATUS(msg);
+    uint8_t channel = MIDI_MSG_GET_CHANNEL(msg);
     
-    if (status >= 0xF0) {
+    if (status_type >= 0xF0) {
         return midi_translate_system_messages_1to2(msg, packet);
     }
 
-    switch (status) {
+    switch (status_type) {
         
         // Note Off (0x80)
         case MIDI_STATUS_NOTE_OFF: {
@@ -413,14 +412,12 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
     if (mt == 0x2) {
         uint32_t word0 = packet->words[0];
         
-        uint8_t group = (word0 >> 24) & 0x0F;
-        uint8_t status = (word0 >> 16) & 0xF0;  // Upper 4 bits
+        uint8_t status_type = (word0 >> 16) & 0xF0;  // Upper 4 bits
         uint8_t channel = (word0 >> 16) & 0x0F; // Lower 4 bits
         uint8_t data1 = (word0 >> 8) & 0x7F;    // Bit 7 is reserved
         uint8_t data2 = word0 & 0x7F;           // Bit 7 is reserved
         
-        msg->status = status | channel;
-        msg->channel = channel;
+        msg->status_byte = status_type | channel;
         msg->data[0] = data1;
         msg->data[1] = data2;
         
@@ -432,19 +429,17 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
         uint32_t word0 = packet->words[0];
         uint32_t word1 = packet->words[1];
         
-        uint8_t group = (word0 >> 24) & 0x0F;
-        uint8_t status = (word0 >> 16) & 0xF0;
+        uint8_t status_type = (word0 >> 16) & 0xF0;
         uint8_t channel = (word0 >> 16) & 0x0F;
         
-        switch (status) {
+        switch (status_type) {
             // Note Off (0x80)
             case 0x80: {
                 uint8_t note = (word0 >> 8) & 0x7F;
                 uint16_t velocity16 = (word1 >> 16) & 0xFFFF;
                 uint8_t velocity7 = midi_downscale_16to7(velocity16);
                 
-                msg->status = 0x80 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0x80 | channel;
                 msg->data[0] = note;
                 msg->data[1] = velocity7;
                 return ESP_OK;
@@ -461,8 +456,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                     velocity7 = 1;
                 }
                 
-                msg->status = 0x90 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0x90 | channel;
                 msg->data[0] = note;
                 msg->data[1] = velocity7;
                 return ESP_OK;
@@ -474,8 +468,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 uint32_t pressure32 = word1;
                 uint8_t pressure7 = midi_downscale_32to7(pressure32);
                 
-                msg->status = 0xA0 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0xA0 | channel;
                 msg->data[0] = note;
                 msg->data[1] = pressure7;
                 return ESP_OK;
@@ -487,8 +480,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 uint32_t value32 = word1;
                 uint8_t value7 = midi_downscale_32to7(value32);
                 
-                msg->status = 0xB0 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0xB0 | channel;
                 msg->data[0] = controller;
                 msg->data[1] = value7;
                 return ESP_OK;
@@ -517,8 +509,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 
                 if (!bank_valid) {
                     // Simple program change without bank
-                    msg->status = 0xC0 | channel;
-                    msg->channel = channel;
+                    msg->status_byte = 0xC0 | channel;
                     msg->data[0] = program;
                     return ESP_OK;
                 } else {
@@ -532,8 +523,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 uint32_t pressure32 = word1;
                 uint8_t pressure7 = midi_downscale_32to7(pressure32);
                 
-                msg->status = 0xD0 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0xD0 | channel;
                 msg->data[0] = pressure7;
                 return ESP_OK;
             }
@@ -547,8 +537,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
                 uint8_t lsb = pitch_bend14 & 0x7F;
                 uint8_t msb = (pitch_bend14 >> 7) & 0x7F;
                 
-                msg->status = 0xE0 | channel;
-                msg->channel = channel;
+                msg->status_byte = 0xE0 | channel;
                 msg->data[0] = lsb;
                 msg->data[1] = msb;
                 return ESP_OK;
@@ -573,7 +562,7 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
         uint32_t word0 = packet->words[0];
         uint8_t status = (word0 >> 16) & 0xFF;
         
-        msg->status = status;
+        msg->status_byte = status;
         
         switch (status) {
             case 0xF1: // MIDI Time Code

@@ -137,7 +137,7 @@ static void midi_uart_rx_task(void *arg)
                             if (complete) {
                                 // Debug logging (verbose)
                                 ESP_LOGI(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
-                                            msg.status, msg.channel, msg.data[0], msg.data[1]);
+                                            msg.status_byte, MIDI_MSG_GET_CHANNEL(&msg), msg.data[0], msg.data[1]);
                                 // Call user callback
                                 if (driver->rx_callback) {
                                     driver->rx_callback(&msg, driver->rx_callback_ctx);

@@ -1,9 +1,11 @@
-#include "midi_usb_device.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "midi_usb_device.h"
+#include "midi_defs.h"
 
 static const char *TAG = "midi_usb_device";
 
@@ -52,8 +54,7 @@ static void midi_rx_task(void *arg)
                 cable = (packet[0] >> 4) & 0x0F;
                 cin = packet[0] & 0x0F;
 
-                msg.status = packet[1];
-                msg.channel = packet[1] & 0x0F;
+                msg.status_byte = packet[1];
                 msg.data[0] = packet[2];
                 msg.data[1] = packet[3];
 
@@ -185,10 +186,10 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
     uint8_t len = 0;
     
     // First byte is always the status byte
-    buffer[len++] = msg->status;
+    buffer[len++] = msg->status_byte;
     
     // Determine number of data bytes based on status byte
-    uint8_t status_type = msg->status & 0xF0;
+    uint8_t status_type = MIDI_MSG_GET_STATUS(msg);
     
     // Channel Voice Messages (0x80 - 0xEF)
     if (status_type >= 0x80 && status_type <= 0xE0) {
@@ -212,8 +213,8 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
         }
     }
     // System Messages (0xF0 - 0xFF)
-    else if (msg->status >= 0xF0) {
-        switch (msg->status) {
+    else if (status_type >= 0xF0) {
+        switch (status_type) {
             case 0xF0: // SysEx Start (handled separately)
             case 0xF7: // SysEx End (handled separately)
                 return ESP_ERR_NOT_SUPPORTED; // Use separate SysEx function

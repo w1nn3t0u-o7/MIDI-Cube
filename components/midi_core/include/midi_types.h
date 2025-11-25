@@ -12,25 +12,13 @@
 #include <stdbool.h>
 
 /**
- * @brief MIDI Message Type Classification
- */
-typedef enum {
-    MIDI_MSG_TYPE_CHANNEL,            /**< Channel Message */
-    MIDI_MSG_TYPE_SYSTEM_COMMON,      /**< System Common Message */
-    MIDI_MSG_TYPE_SYSTEM_REALTIME,    /**< System Real-Time Message */
-    MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE,   /**< System Exclusive Message */
-    MIDI_MSG_TYPE_UNKNOWN             /**< Unknown/Invalid Message */
-} midi_message_type_t;
-
-/**
  * @brief Complete MIDI 1.0 Message Structure
  * 
  * Represents a complete, parsed MIDI message with all relevant data
  */
 typedef struct midi_message {
-    midi_message_type_t type;      /**< Message type classification */
-    uint8_t status;                /**< Full status byte (including channel) */
-    uint8_t channel;               /**< MIDI channel (0-15, representing 1-16) */
+    uint8_t status_byte;                /**< Full status byte (including channel) */
+    //uint8_t channel;               /**< MIDI channel (0-15, representing 1-16) */
     uint8_t data[2];              /**< Up to 2 data bytes */
 } midi_message_t;
 

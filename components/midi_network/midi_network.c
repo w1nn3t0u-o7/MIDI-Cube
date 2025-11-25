@@ -474,7 +474,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
                 ump_offset += 4;
             }
 
-            if (UMP_NUM_WORDS(ump) != payload_words) {
+            if (UMP_GET_NUM_WORDS(ump) != payload_words) {
                 midi_net_quick_nak(ep, peer_addr, peer_addr_len,
                         NAK_CMD_MALFORMED, cmd_header);
                 ESP_LOGE("midi_net", "Invalid UMP payload size for its message type");

@@ -168,33 +168,26 @@
 /** @} */
 
 /**
- * @defgroup MIDI_CONSTANTS MIDI Protocol Constants
+ * @defgroup MIDI_MASKS MIDI Bit Masks
+ * @brief Commonly used bit masks for MIDI message parsing
  * @{
  */
 
-#define MIDI_BAUD_RATE              31250     /**< MIDI standard baud rate */
-#define MIDI_CHANNELS               16        /**< Number of MIDI channels (1-16) */
-#define MIDI_NOTE_MIN               0         /**< Minimum note number */
-#define MIDI_NOTE_MAX               127       /**< Maximum note number */
-#define MIDI_NOTE_MIDDLE_C          60        /**< Middle C note number */
-#define MIDI_VELOCITY_MIN           0         /**< Minimum velocity value */
-#define MIDI_VELOCITY_MAX           127       /**< Maximum velocity value */
-#define MIDI_VELOCITY_DEFAULT       64        /**< Default velocity (mezzo-forte) */
-#define MIDI_DATA_BYTE_MAX          127       /**< Maximum data byte value (7-bit) */
+
 #define MIDI_STATUS_BIT_MASK        0x80      /**< Status byte MSB mask */
 #define MIDI_DATA_BIT_MASK          0x7F      /**< Data byte mask (7-bit) */
 #define MIDI_CHANNEL_MASK           0x0F      /**< Channel number mask (4-bit) */
 #define MIDI_STATUS_TYPE_MASK       0xF0      /**< Status type mask (upper nibble) */
 
-/* Pitch Bend */
-#define MIDI_PITCH_BEND_CENTER      0x2000    /**< Pitch bend center value (8192) */
-#define MIDI_PITCH_BEND_MIN         0x0000    /**< Pitch bend minimum value */
-#define MIDI_PITCH_BEND_MAX         0x3FFF    /**< Pitch bend maximum value (16383) */
-
-/* Active Sensing Timing */
-#define MIDI_ACTIVE_SENSING_TIMEOUT_MS  300   /**< Active sensing timeout (ms) */
-
 /** @} */
 
+/* Helper macros to extract fields from midi_message_t */
+#define MIDI_MSG_GET_STATUS(msg) ((msg)->status_byte) & 0xF0
+
+#define MIDI_MSG_GET_CHANNEL(msg) ((msg)->status_byte) & 0x0F
+
+#define MIDI_MSG_GET_DATA1(msg) ((msg)->data[0])
+
+#define MIDI_MSG_GET_DATA2(msg) ((msg)->data[1])
 
 #endif /* MIDI_DEFS_H */
