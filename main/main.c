@@ -89,59 +89,6 @@ void on_network_lost(void)
 }
 
 //=============================================================================
-// Transport RX Callbacks - Feed Router Queue
-//=============================================================================
-
-/**
- * @brief USB RX Callback
- */
-// static void usb_rx_callback(const midi_usb_packet_t *usb_pkt, void *ctx) {
-//     midi_router_packet_t packet = {
-//         .source = MIDI_TRANSPORT_USB,
-//         .timestamp_us = usb_pkt->timestamp_us
-//     };
-    
-//     // Check if MIDI 1.0 or 2.0
-//     if (usb_pkt->protocol == MIDI_USB_PROTOCOL_1_0) {
-//         packet.format = MIDI_FORMAT_1_0;
-//         // Convert USB-MIDI to standard MIDI 1.0
-//         packet.data.midi1.status = usb_pkt->data.midi1.midi_bytes[0];
-//         packet.data.midi1.channel = usb_pkt->data.midi1.midi_bytes[0] & 0x0F;
-//         packet.data.midi1.data.bytes[0] = usb_pkt->data.midi1.midi_bytes[1];
-//         packet.data.midi1.data.bytes[1] = usb_pkt->data.midi1.midi_bytes[2];
-//     } else {
-//         packet.format = MIDI_FORMAT_2_0;
-//         packet.data.ump = usb_pkt->data.ump;
-//     }
-    
-//     xQueueSend(g_router_input_queue, &packet, 0);
-// }
-
-//=============================================================================
-// Initialization Functions
-//=============================================================================
-
-/**
- * @brief Initialize USB Transport
- */
-// static void init_usb(void) {
-// #if ENABLE_USB
-//     midi_usb_config_t usb_cfg = {
-//         .mode = MIDI_USB_MODE_AUTO,  // Auto-detect device/host
-//         .enable_midi2 = true,
-//         .num_cables = 1,
-//         .device_vid = 0x1234,        // TODO: Get real VID
-//         .device_pid = 0x5678,
-//         .rx_callback = usb_rx_callback,
-//         .callback_ctx = NULL
-//     };
-    
-//     ESP_ERROR_CHECK(midi_usb_init(&usb_cfg));
-//     ESP_LOGI(TAG, "USB MIDI initialized");
-// #endif
-// }
-
-//=============================================================================
 // Main Application Entry Point
 //=============================================================================
 
@@ -165,12 +112,11 @@ void app_main(void) {
     //=========================================================================
     // Initialize WiFi (registers callbacks)
     midi_wifi_register_callbacks(on_network_ready, on_network_lost);
+    midi_eth_init();
     midi_wifi_init();
     
     // Initialize Ethernet (registers callbacks)
-    midi_eth_register_callbacks(on_network_ready, on_network_lost);
-    midi_eth_init();
-     
+
     midi_router_init();
     midi_usbd_register_rx_callback(midi_usbd_rx_callback);
     midi_usbd_init();

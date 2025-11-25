@@ -1,0 +1,53 @@
+menu "MIDI Ethernet Configuration"
+
+    choice MIDI_ETH_IP_MODE
+        prompt "Ethernet IP Configuration Mode"
+        default MIDI_ETH_IP_STATIC
+        help
+            Select how Ethernet gets its IP address:
+            - Static: For direct PC connection (192.168.50.2)
+            - DHCP: For connection via router (automatic IP)
+
+        config MIDI_ETH_IP_STATIC
+            bool "Static IP (Direct PC Connection)"
+            help
+                Use static IP 192.168.50.2 for direct connection to PC.
+                PC should be configured with 192.168.50.1.
+
+        config MIDI_ETH_IP_DHCP
+            bool "DHCP (Router Connection)"
+            help
+                Get IP address automatically from router via DHCP.
+                Suitable for connecting to existing network.
+    endchoice
+
+    config MIDI_ETH_STATIC_IP
+        string "Static IP Address"
+        depends on MIDI_ETH_IP_STATIC
+        default "192.168.50.2"
+        help
+            Static IP address for Ethernet interface.
+
+    config MIDI_ETH_STATIC_NETMASK
+        string "Static Netmask"
+        depends on MIDI_ETH_IP_STATIC
+        default "255.255.255.0"
+        help
+            Netmask for static IP configuration.
+
+    config MIDI_ETH_STATIC_GATEWAY
+        string "Static Gateway"
+        depends on MIDI_ETH_IP_STATIC
+        default "192.168.50.1"
+        help
+            Gateway address (usually your PC's IP).
+
+    config MIDI_ETH_DISABLE_WIFI_ON_DHCP
+        bool "Disable WiFi when Ethernet gets DHCP"
+        depends on MIDI_ETH_IP_DHCP
+        default n
+        help
+            Automatically disable WiFi if Ethernet gets DHCP address
+            on the same subnet as WiFi. This prevents routing conflicts.
+
+endmenu

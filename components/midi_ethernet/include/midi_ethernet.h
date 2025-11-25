@@ -31,60 +31,26 @@
 typedef void (*eth_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
 typedef void (*eth_disconnected_cb_t)(void);
 
-typedef struct {
-    esp_netif_t *eth_netif;
-    esp_eth_handle_t eth_handle;
-    eth_connected_cb_t connected_cb;
-    eth_disconnected_cb_t disconnected_cb;
-    bool is_connected;
-    bool link_up;
-
-    spi_host_device_t spi_host;  // SPI2_HOST or SPI3_HOST
-    int spi_clock_mhz;            // SPI clock speed (8-36 MHz recommended)
-    int gpio_mosi;
-    int gpio_miso;
-    int gpio_sclk;
-    int gpio_cs;
-    int gpio_int;                 // Interrupt GPIO
-    int gpio_rst;                 // Reset GPIO (-1 if not used)
-} midi_eth_config_t;
-
-/**
- * @brief Initialize W5500 Ethernet
- * 
- * @param config Ethernet/W5500 configuration
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t midi_eth_init(void);
-
-/**
- * @brief Register connection callbacks
- * 
- * @param connected_cb Called when Ethernet connects and gets IP
- * @param disconnected_cb Called when Ethernet link goes down
- */
 void midi_eth_register_callbacks(eth_connected_cb_t connected_cb,
                                           eth_disconnected_cb_t disconnected_cb);
 
 /**
- * @brief Get Ethernet network interface
+ * @brief Initialize Ethernet interface with configured IP mode
  * 
- * @return esp_netif_t* Network interface or NULL if not initialized
+ * Uses Kconfig settings to determine:
+ * - Static IP (CONFIG_MIDI_ETH_IP_STATIC) for direct PC connection
+ * - DHCP (CONFIG_MIDI_ETH_IP_DHCP) for router connection
+ * 
+ * @return ESP_OK on success
+ */
+esp_err_t midi_eth_init(void);
+
+/**
+ * @brief Get the Ethernet network interface handle
+ * 
+ * @return esp_netif_t* pointer to Ethernet netif or NULL if not initialized
  */
 esp_netif_t* midi_eth_get_netif(void);
 
-/**
- * @brief Check if Ethernet is connected
- * 
- * @return true if link is up and has valid IP
- */
-bool midi_eth_is_connected(void);
-
-/**
- * @brief Stop and deinitialize Ethernet
- * 
- * @return esp_err_t ESP_OK on success
- */
-esp_err_t midi_eth_deinit(void);
 
 #endif /* MIDI_ETHERNET_H */

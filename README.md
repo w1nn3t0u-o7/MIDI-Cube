@@ -3,12 +3,13 @@
 - STYLE THE CODE!!!!!
 - PCB
 - optimize for latency
+- fix looks of qsynth and logic
 
 ## midi_core
 
 - Add Active Sensing support
 - Add more robust System Exclusive support 
-- add length tu midi message type for easier serializing
+- add length to midi message type for easier serializing
 
 ## midi_uart
 

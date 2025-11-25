@@ -1,192 +1,148 @@
-#include "midi_ethernet.h"
-#include "esp_log.h"
-#include "driver/gpio.h"
-#include "esp_mac.h"
-#include "esp_eth_mac_w5500.h"
-#include "esp_eth_phy_w5500.h"
+/*
+ * SPDX-FileCopyrightText: 2023 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#include <stdio.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_netif.h"
+#include "esp_eth.h"
 #include "esp_event.h"
+#include "esp_log.h"
+#include "ethernet_init.h"
+#include "sdkconfig.h"
 
-static const char *TAG = "midi_eth";
+#include "midi_ethernet.h"
+static const char *TAG = "ethernet_basic";
 
-static midi_eth_config_t midi_eth_config = {
-    .spi_host = SPI2_HOST,
-    .spi_clock_mhz = SPI_MASTER_FREQ_20M,
-    .gpio_mosi = 11,
-    .gpio_miso = 13,
-    .gpio_sclk = 12,
-    .gpio_cs = 10,
-    .gpio_int = 9,
-    .gpio_rst = 3,
-};
-
-static void eth_event_handler(void *arg, esp_event_base_t event_base,
-                              int32_t event_id, void *event_data)
+/* Event handler for IP_EVENT_ETH_GOT_IP */
+static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
+                                 int32_t event_id, void *event_data)
 {
-    if (event_base == ETH_EVENT) {
-        switch (event_id) {
-        case ETHERNET_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "Ethernet Link Up");
-            midi_eth_config.link_up = true;
-            break;
-            
-        case ETHERNET_EVENT_DISCONNECTED:
-            ESP_LOGW(TAG, "Ethernet Link Down");
-            midi_eth_config.link_up = false;
-            midi_eth_config.is_connected = false;
-            
-            if (midi_eth_config.disconnected_cb) {
-                midi_eth_config.disconnected_cb();
-            }
-            break;
-            
-        case ETHERNET_EVENT_START:
-            ESP_LOGI(TAG, "Ethernet Started");
-            break;
-            
-        case ETHERNET_EVENT_STOP:
-            ESP_LOGI(TAG, "Ethernet Stopped");
-            midi_eth_config.is_connected = false;
-            midi_eth_config.link_up = false;
-            break;
-            
-        default:
-            break;
-        }
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_ETH_GOT_IP) {
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        midi_eth_config.is_connected = true;
-        
-        char ip_str[16];
-        esp_ip4addr_ntoa(&event->ip_info.ip, ip_str, sizeof(ip_str));
-        ESP_LOGI(TAG, "Got IP address: %s", ip_str);
-        
-        if (midi_eth_config.connected_cb) {
-            midi_eth_config.connected_cb(midi_eth_config.eth_netif, ip_str);
-        }
-    }
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+    const esp_netif_ip_info_t *ip_info = &event->ip_info;
+
+    ESP_LOGI(TAG, "Ethernet Got IP Address");
+    ESP_LOGI(TAG, "~~~~~~~~~~~");
+    ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&ip_info->ip));
+    ESP_LOGI(TAG, "MASK: " IPSTR, IP2STR(&ip_info->netmask));
+    ESP_LOGI(TAG, "GW: " IPSTR, IP2STR(&ip_info->gw));
+    ESP_LOGI(TAG, "~~~~~~~~~~~");
+
+#ifdef CONFIG_MIDI_ETH_IP_STATIC
+    ESP_LOGI(TAG, "Ethernet running in STATIC IP mode (direct connection)");
+#else
+    ESP_LOGI(TAG, "Ethernet running in DHCP mode (router connection)");
+    
+#ifdef CONFIG_MIDI_ETH_DISABLE_WIFI_ON_DHCP
+    // TODO: Add logic to check if WiFi is on same subnet and disable it
+    ESP_LOGI(TAG, "Checking for WiFi/Ethernet subnet conflict...");
+#endif
+#endif
 }
 
 esp_err_t midi_eth_init(void)
 {
-    esp_err_t ret;
-    
-    // Initialize TCP/IP stack if not already done
-    ret = esp_netif_init();
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        return ret;
+    uint8_t eth_port_cnt = 0;
+    esp_eth_handle_t *eth_handles;
+    char if_key_str[10];
+    char if_desc_str[10];
+
+    // Initialize TCP/IP network interface aka the esp-netif (should be called only once in application)
+    ESP_ERROR_CHECK(esp_netif_init());
+    // Create default event loop that running in background
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    // Register user defined event handers
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &got_ip_event_handler, NULL));
+
+    // Initialize Ethernet driver
+    ESP_ERROR_CHECK(ethernet_init_all(&eth_handles, &eth_port_cnt));
+
+    if (eth_port_cnt == 0) {
+        ESP_LOGE(TAG, "No Ethernet interface found!");
+        return ESP_FAIL;
     }
     
-    // Create default event loop if not already created
-    ret = esp_event_loop_create_default();
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        return ret;
+    ESP_LOGI(TAG, "Ethernet port count: %d", eth_port_cnt);
+
+    // Create instance(s) of esp-netif for Ethernet(s)
+    if (eth_port_cnt == 1) {
+        // Use ESP_NETIF_DEFAULT_ETH when just one Ethernet interface is used and you don't need to modify
+        // default esp-netif configuration parameters.
+        esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
+        esp_netif_t *eth_netif = esp_netif_new(&cfg);
+        // Attach Ethernet driver to TCP/IP stack
+        ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handles[0])));
+
+#ifdef CONFIG_MIDI_ETH_IP_STATIC
+        // Configure STATIC IP
+        ESP_LOGI(TAG, "Configuring static IP: " CONFIG_MIDI_ETH_STATIC_IP);
+        
+        // Stop DHCP client first
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(eth_netif));
+        
+        // Parse and set static IP configuration
+        esp_netif_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
+        
+        ip_info.ip.addr = esp_ip4addr_aton(CONFIG_MIDI_ETH_STATIC_IP);
+        ip_info.netmask.addr = esp_ip4addr_aton(CONFIG_MIDI_ETH_STATIC_NETMASK);
+        ip_info.gw.addr = esp_ip4addr_aton(CONFIG_MIDI_ETH_STATIC_GATEWAY);
+        
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(eth_netif, &ip_info));
+        
+        ESP_LOGI(TAG, "Static IP configured successfully");
+        ESP_LOGI(TAG, "  IP: " CONFIG_MIDI_ETH_STATIC_IP);
+        ESP_LOGI(TAG, "  Netmask: " CONFIG_MIDI_ETH_STATIC_NETMASK);
+        ESP_LOGI(TAG, "  Gateway: " CONFIG_MIDI_ETH_STATIC_GATEWAY);
+#else
+        // DHCP mode - already enabled by default
+        ESP_LOGI(TAG, "Using DHCP - waiting for IP address from router...");
+#endif
+
+    } else {
+        // Use ESP_NETIF_INHERENT_DEFAULT_ETH when multiple Ethernet interfaces are used and so you need to modify
+        // esp-netif configuration parameters for each interface (name, priority, etc.).
+        esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
+        esp_netif_config_t cfg_spi = {
+            .base = &esp_netif_config,
+            .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
+        };
+
+        for (int i = 0; i < eth_port_cnt; i++) {
+            sprintf(if_key_str, "ETH_%d", i);
+            sprintf(if_desc_str, "eth%d", i);
+            esp_netif_config.if_key = if_key_str;
+            esp_netif_config.if_desc = if_desc_str;
+            esp_netif_config.route_prio -= i * 5;
+            esp_netif_t *eth_netif = esp_netif_new(&cfg_spi);
+
+            // Attach Ethernet driver to TCP/IP stack
+            ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handles[i])));
+        }
     }
 
-    // CRITICAL: Install GPIO ISR service BEFORE W5500 initialization
-    ret = gpio_install_isr_service(0);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to install GPIO ISR service: %s", esp_err_to_name(ret));
-        return ret;
+    // Start Ethernet driver state machine
+    for (int i = 0; i < eth_port_cnt; i++) {
+        ESP_ERROR_CHECK(esp_eth_start(eth_handles[i]));
     }
-    
-    // Create network interface for Ethernet
-    esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
-    midi_eth_config.eth_netif = esp_netif_new(&netif_cfg);
-    
-    // Configure SPI bus
-    spi_bus_config_t buscfg = {
-        .mosi_io_num = midi_eth_config.gpio_mosi,
-        .miso_io_num = midi_eth_config.gpio_miso,
-        .sclk_io_num = midi_eth_config.gpio_sclk,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-    };
-    
-    ESP_LOGI(TAG, "Initializing SPI bus on host %d", midi_eth_config.spi_host);
-    ESP_ERROR_CHECK(spi_bus_initialize(midi_eth_config.spi_host, &buscfg, SPI_DMA_CH_AUTO));
-    
-    // Configure SPI device for W5500
-    spi_device_interface_config_t devcfg = {
-        .mode = 0,
-        .clock_speed_hz = midi_eth_config.spi_clock_mhz,
-        .queue_size = 20,
-        .spics_io_num = midi_eth_config.gpio_cs,
-    };
-    
-    // W5500 specific configuration
-    eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(midi_eth_config.spi_host, &devcfg);
-    w5500_config.int_gpio_num = midi_eth_config.gpio_int;
-    
-    // Create W5500 MAC
-    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
-    esp_eth_mac_t *mac = esp_eth_mac_new_w5500(&w5500_config, &mac_config);
-    
-    // Create W5500 PHY
-    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
-    phy_config.reset_gpio_num = midi_eth_config.gpio_rst;
-    esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
-    
-    // Install Ethernet driver
-    esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
-    ESP_ERROR_CHECK(esp_eth_driver_install(&eth_config, &midi_eth_config.eth_handle));
-    
-    // Attach Ethernet driver to TCP/IP stack
-    void *glue = esp_eth_new_netif_glue(midi_eth_config.eth_handle);
-    ESP_ERROR_CHECK(esp_netif_attach(midi_eth_config.eth_netif, glue));
-    
-    // Register event handlers
-    ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID,
-                                                &eth_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP,
-                                                &eth_event_handler, NULL));
-    
-    // Start Ethernet
-    ESP_ERROR_CHECK(esp_eth_start(midi_eth_config.eth_handle));
 
-    // Set MAC address for W5500 (it has no factory MAC)
-    uint8_t base_mac[6];
-    esp_read_mac(base_mac, ESP_MAC_ETH);  // Get ESP32's base MAC + 3
-
-    ESP_LOGI(TAG, "Setting W5500 MAC: %02X:%02X:%02X:%02X:%02X:%02X",
-            base_mac[0], base_mac[1], base_mac[2], base_mac[3], base_mac[4], base_mac[5]);
-
-    // Set MAC on both hardware and esp-netif layer
-    ESP_ERROR_CHECK(esp_netif_set_mac(midi_eth_config.eth_netif, base_mac));
-    
-    ESP_LOGI(TAG, "W5500 Ethernet initialized successfully");
-    
-    return ESP_OK;
-}
-
-void midi_eth_register_callbacks(eth_connected_cb_t connected_cb,
-                                          eth_disconnected_cb_t disconnected_cb)
-{
-    midi_eth_config.connected_cb = connected_cb;
-    midi_eth_config.disconnected_cb = disconnected_cb;
-}
-
-esp_netif_t* midi_eth_get_netif(void)
-{
-    return midi_eth_config.eth_netif;
-}
-
-bool midi_eth_is_connected(void)
-{
-    return midi_eth_config.is_connected && midi_eth_config.link_up;
-}
-
-esp_err_t midi_eth_deinit(void)
-{
-    if (midi_eth_config.eth_handle) {
-        ESP_ERROR_CHECK(esp_eth_stop(midi_eth_config.eth_handle));
-        ESP_ERROR_CHECK(esp_eth_driver_uninstall(midi_eth_config.eth_handle));
-        midi_eth_config.eth_handle = NULL;
+    // Print each device info
+    for (int i = 0; i < eth_port_cnt; i++) {
+        eth_dev_info_t info = ethernet_init_get_dev_info(eth_handles[i]);
+        if (info.type == ETH_DEV_TYPE_INTERNAL_ETH) {
+            ESP_LOGI(TAG, "Device Name: %s", info.name);
+            ESP_LOGI(TAG, "Device type: ETH_DEV_TYPE_INTERNAL_ETH(%d)", info.type);
+            ESP_LOGI(TAG, "Pins: mdc: %d, mdio: %d", info.pin.eth_internal_mdc, info.pin.eth_internal_mdio);
+        } else if (info.type == ETH_DEV_TYPE_SPI) {
+            ESP_LOGI(TAG, "Device Name: %s", info.name);
+            ESP_LOGI(TAG, "Device type: ETH_DEV_TYPE_SPI(%d)", info.type);
+            ESP_LOGI(TAG, "Pins: cs: %d, intr: %d", info.pin.eth_spi_cs, info.pin.eth_spi_int);
+        }
     }
-    
-    if (midi_eth_config.eth_netif) {
-        esp_netif_destroy(midi_eth_config.eth_netif);
-        midi_eth_config.eth_netif = NULL;
-    }
-    
+
     return ESP_OK;
 }
