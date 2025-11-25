@@ -41,7 +41,7 @@ static void midi_rx_task(void *arg)
     uint8_t cin;
     
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(1);
         
         while (tud_midi_available()) {
             if (tud_midi_packet_read(packet)) {
@@ -61,6 +61,7 @@ static void midi_rx_task(void *arg)
                 if (config.rx_callback) {
                     config.rx_callback(cable, cin, &msg);
                 }
+
             }
         }
     }

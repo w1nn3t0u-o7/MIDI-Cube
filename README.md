@@ -1,7 +1,6 @@
 # TODO
 
 - STYLE THE CODE!!!!!
-- Schematic
 - PCB
 - optimize for latency
 
@@ -9,13 +8,12 @@
 
 - Add Active Sensing support
 - Add more robust System Exclusive support 
-- Add translation case from UMP midi 1.0 to midi1 message
 - add length tu midi message type for easier serializing
-- add reserved values for future proof
 
 ## midi_uart
 
 - add optocoupler to eliminate noise on rx
+- add test melody loop to transmiter
 
 ## midi_wifi
 
@@ -30,6 +28,17 @@
 - ump stream responder.h check
 
 ---
+
+- [x] UART RX -> UART TX 
+- [x] UART RX -> USB 
+- [x] UART RX -> Network
+
+- [x] USB -> UART TX (amidiplay -> logic analyzer)
+- [x] USB -> Network (amidiplay -> pymidi2)
+
+- [x] Network -> UART TX (pymidi2 -> logic analyzer)
+- [x] Network -> USB (pymidi2 -> qsynth)
+ 
 # Perplexity additions
 
 ## Table of Contents

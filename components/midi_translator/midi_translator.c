@@ -408,6 +408,24 @@ esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
     if (!packet || !msg) return ESP_ERR_INVALID_ARG;
     
     uint8_t mt = (packet->words[0] >> 28) & 0x0F;
+
+    // Handle MIDI 1.0 Channel Voice Messages (MT 0x2)
+    if (mt == 0x2) {
+        uint32_t word0 = packet->words[0];
+        
+        uint8_t group = (word0 >> 24) & 0x0F;
+        uint8_t status = (word0 >> 16) & 0xF0;  // Upper 4 bits
+        uint8_t channel = (word0 >> 16) & 0x0F; // Lower 4 bits
+        uint8_t data1 = (word0 >> 8) & 0x7F;    // Bit 7 is reserved
+        uint8_t data2 = word0 & 0x7F;           // Bit 7 is reserved
+        
+        msg->status = status | channel;
+        msg->channel = channel;
+        msg->data[0] = data1;
+        msg->data[1] = data2;
+        
+        return ESP_OK;
+    }
     
     // Handle MIDI 2.0 Channel Voice Messages (MT 0x4)
     if (mt == 0x4) {
