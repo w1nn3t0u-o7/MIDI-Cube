@@ -5,7 +5,6 @@
 #include "freertos/task.h"
 
 #include "midi_usb_device.h"
-#include "midi_defs.h"
 
 static const char *TAG = "midi_usb_device";
 
@@ -82,21 +81,6 @@ esp_err_t midi_usbd_init(void)
     str_desc[3] = config.serial;
     str_desc[4] = config.midi_interface_name;
     
-    // uint8_t *desc = midi_cfg_desc;
-    
-    // // Configuration descriptor
-    // uint8_t const config_desc[] = {
-    //     TUD_CONFIG_DESCRIPTOR(1, ITF_COUNT, 0, TUSB_DESCRIPTOR_TOTAL_LEN, 0, 100)
-    // };
-    // memcpy(desc, config_desc, sizeof(config_desc));
-    // desc += sizeof(config_desc);
-    
-    // // MIDI interface descriptor
-    // uint8_t const midi_desc[] = {
-    //     TUD_MIDI_DESCRIPTOR(ITF_NUM_MIDI, 4, EPNUM_MIDI, (0x80 | EPNUM_MIDI), 64)
-    // };
-    // memcpy(desc, midi_desc, sizeof(midi_desc));
-    
 #if (TUD_OPT_HIGH_SPEED)
     // High-speed configuration
     s_midi_hs_cfg_desc = malloc(TUSB_DESCRIPTOR_TOTAL_LEN);
@@ -164,13 +148,6 @@ esp_err_t midi_usbd_register_rx_callback(midi_usbd_rx_cb_t callback)
     return ESP_OK;
 }
 
-/**
- * @brief Send a complete MIDI message via USB
- * 
- * @param cable Cable number (0-15)
- * @param msg Pointer to MIDI message structure
- * @return ESP_OK on success, error code otherwise
- */
 esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
 {
     if (!msg) {
@@ -189,22 +166,22 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
     buffer[len++] = msg->status_byte;
     
     // Determine number of data bytes based on status byte
-    uint8_t status_type = MIDI_MSG_GET_STATUS(msg);
+    uint8_t status_type = MIDI1_MSG_GET_STATUS(msg);
     
     // Channel Voice Messages (0x80 - 0xEF)
     if (status_type >= 0x80 && status_type <= 0xE0) {
         switch (status_type) {
-            case 0x80: // Note Off (3 bytes)
-            case 0x90: // Note On (3 bytes)
-            case 0xA0: // Poly Pressure (3 bytes)
-            case 0xB0: // Control Change (3 bytes)
-            case 0xE0: // Pitch Bend (3 bytes)
+            case MIDI1_STATUS_NOTE_OFF: // Note Off (3 bytes)
+            case MIDI1_STATUS_NOTE_ON: // Note On (3 bytes)
+            case MIDI1_STATUS_POLY_PRESSURE: // Poly Pressure (3 bytes)
+            case MIDI1_STATUS_CONTROL_CHANGE: // Control Change (3 bytes)
+            case MIDI1_STATUS_PITCH_BEND: // Pitch Bend (3 bytes)
                 buffer[len++] = msg->data[0] & 0x7F;
                 buffer[len++] = msg->data[1] & 0x7F;
                 break;
                 
-            case 0xC0: // Program Change (2 bytes)
-            case 0xD0: // Channel Pressure (2 bytes)
+            case MIDI1_STATUS_PROGRAM_CHANGE: // Program Change (2 bytes)
+            case MIDI1_STATUS_CHANNEL_PRESSURE: // Channel Pressure (2 bytes)
                 buffer[len++] = msg->data[0] & 0x7F;
                 break;
                 
@@ -215,27 +192,27 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
     // System Messages (0xF0 - 0xFF)
     else if (status_type >= 0xF0) {
         switch (status_type) {
-            case 0xF0: // SysEx Start (handled separately)
-            case 0xF7: // SysEx End (handled separately)
+            case MIDI1_STATUS_SYSEX_START: // SysEx Start (handled separately)
+            case MIDI1_STATUS_SYSEX_END: // SysEx End (handled separately)
                 return ESP_ERR_NOT_SUPPORTED; // Use separate SysEx function
                 
-            case 0xF1: // MIDI Time Code Quarter Frame (2 bytes)
-            case 0xF3: // Song Select (2 bytes)
+            case MIDI1_STATUS_MTC_QUARTER_FRAME: // MIDI Time Code Quarter Frame (2 bytes)
+            case MIDI1_STATUS_SONG_SELECT: // Song Select (2 bytes)
                 buffer[len++] = msg->data[0] & 0x7F;
                 break;
                 
-            case 0xF2: // Song Position Pointer (3 bytes)
+            case MIDI1_STATUS_SONG_POSITION: // Song Position Pointer (3 bytes)
                 buffer[len++] = msg->data[0] & 0x7F;
                 buffer[len++] = msg->data[1] & 0x7F;
                 break;
                 
-            case 0xF6: // Tune Request (1 byte)
-            case 0xF8: // Timing Clock (1 byte)
-            case 0xFA: // Start (1 byte)
-            case 0xFB: // Continue (1 byte)
-            case 0xFC: // Stop (1 byte)
-            case 0xFE: // Active Sensing (1 byte)
-            case 0xFF: // System Reset (1 byte)
+            case MIDI1_STATUS_TUNE_REQUEST: // Tune Request (1 byte)
+            case MIDI1_STATUS_TIMING_CLOCK: // Timing Clock (1 byte)
+            case MIDI1_STATUS_START: // Start (1 byte)
+            case MIDI1_STATUS_CONTINUE: // Continue (1 byte)
+            case MIDI1_STATUS_STOP: // Stop (1 byte)
+            case MIDI1_STATUS_ACTIVE_SENSING: // Active Sensing (1 byte)
+            case MIDI1_STATUS_SYSTEM_RESET: // System Reset (1 byte)
                 // No data bytes, just status
                 break;
                 
@@ -264,7 +241,7 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
     return ESP_OK;
 }
 
-bool usb_midi_is_mounted(void)
+bool midi_usbd_is_mounted(void)
 {
     return tud_midi_mounted();
 }

@@ -4,17 +4,9 @@
  * 
  * Implements flexible, configurable routing between 4 transports:
  * - UART/DIN (MIDI 1.0)
- * - USB (MIDI 1.0 / 2.0)
+ * - USB (MIDI 1.0)
  * - Ethernet (MIDI 2.0 over UDP)
  * - WiFi (MIDI 2.0 over UDP)
- * 
- * Features:
- * - 4×4 routing matrix (any input → any outputs)
- * - Automatic protocol translation (MIDI 1.0 ↔ UMP)
- * - Message filtering (channel, type, etc.)
- * - Real-time performance (<1ms latency)
- * - Configuration save/load (NVS)
- * - Activity monitoring and statistics
  */
 
 #ifndef MIDI_ROUTER_H
@@ -26,25 +18,34 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "midi_types.h"
-#include "ump_types.h"
+#include "midi_message.h"
+#include "ump_packet.h"
 #include "midi_network.h"
 
+/**
+ * @defgroup MIDI_ROUTER_CONFIG Router Configuration
+ * @{
+ */
 #define ROUTER_QUEUE_SIZE 64
 #define ROUTER_TASK_STACK_SIZE 4096
 #define ROUTER_TASK_PRIORITY 10
 #define ROUTER_TASK_CORE 1
+
+/** @} */
 
 /**
  * @brief Transport identifiers
  */
 typedef enum {
     MIDI_TRANSPORT_UART,  /**< UART/DIN-5 (MIDI 1.0) */
-    MIDI_TRANSPORT_USB,       /**< USB (MIDI 1.0/2.0) */
+    MIDI_TRANSPORT_USB,       /**< USB (MIDI 1.0) */
     MIDI_TRANSPORT_NETWORK,  /**< Ethernet/WiFi (MIDI 2.0 over UDP) */
     MIDI_TRANSPORT_COUNT      /**< Number of transports */
 } midi_transport_t;
 
+/**
+ * @brief MIDI format identifiers
+ */
 typedef enum {
     MIDI_FORMAT_1_0,  /**< MIDI 1.0 format */
     MIDI_FORMAT_2_0   /**< MIDI 2.0 format */
@@ -53,7 +54,7 @@ typedef enum {
 /**
  * @brief Router state
  */
-typedef struct {
+typedef struct midi_router_config {
     bool initialized;
     bool enable_uart;
     bool enable_usb;
@@ -71,7 +72,7 @@ typedef struct {
 /**
  * @brief MIDI packet format (unified internal format)
  */
-typedef struct {
+typedef struct midi_router_packet {
     midi_transport_t source;     /**< Source transport */
     uint8_t format;               /**< 0=MIDI1.0, 1=UMP */
     uint8_t cable;                /**< Cable number (for USB) */
@@ -83,10 +84,29 @@ typedef struct {
     } data;
 } midi_router_packet_t;
 
-void uart_rx_callback(const midi_message_t *msg, void *ctx);
+/**
+ * @brief Callback when MIDI message is received from UART
+ * 
+ * @param msg Parsed MIDI message
+ */
+void uart_rx_callback(const midi_message_t *msg);
 
+/**
+ * @brief Callback when UMP packet is received from network
+ * This sends the packet to the MIDI router for processing
+ * 
+ * @param session Pointer to MIDI network session
+ * @param ump Pointer to received UMP packet
+ */
 void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump);
 
+/**
+ * @brief Callback when MIDI message is received from USB
+ * 
+ * @param cable USB MIDI cable number
+ * @param cin Code Index Number
+ * @param msg Parsed MIDI message
+ */
 void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg);
 
 /**
@@ -94,7 +114,6 @@ void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg);
  * 
  * Creates router task, initializes buffers, loads configuration from NVS
  * 
- * @param config Initial router configuration (NULL = load from NVS)
  * @return ESP_OK on success
  */
 esp_err_t midi_router_init(void);

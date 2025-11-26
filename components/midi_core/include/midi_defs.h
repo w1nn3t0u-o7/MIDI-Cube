@@ -15,33 +15,33 @@
  */
 
 /* Channel Voice Messages (8n - En) */
-#define MIDI_STATUS_NOTE_OFF            0x80  /**< Note Off message */
-#define MIDI_STATUS_NOTE_ON             0x90  /**< Note On message */
-#define MIDI_STATUS_POLY_PRESSURE       0xA0  /**< Polyphonic Key Pressure (Aftertouch) */
-#define MIDI_STATUS_CONTROL_CHANGE      0xB0  /**< Control Change message */
-#define MIDI_STATUS_PROGRAM_CHANGE      0xC0  /**< Program Change message */
-#define MIDI_STATUS_CHANNEL_PRESSURE    0xD0  /**< Channel Pressure (Aftertouch) */
-#define MIDI_STATUS_PITCH_BEND          0xE0  /**< Pitch Bend Change message */
+#define MIDI1_STATUS_NOTE_OFF            0x80  /**< Note Off message */
+#define MIDI1_STATUS_NOTE_ON             0x90  /**< Note On message */
+#define MIDI1_STATUS_POLY_PRESSURE       0xA0  /**< Polyphonic Key Pressure (Aftertouch) */
+#define MIDI1_STATUS_CONTROL_CHANGE      0xB0  /**< Control Change message */
+#define MIDI1_STATUS_PROGRAM_CHANGE      0xC0  /**< Program Change message */
+#define MIDI1_STATUS_CHANNEL_PRESSURE    0xD0  /**< Channel Pressure (Aftertouch) */
+#define MIDI1_STATUS_PITCH_BEND          0xE0  /**< Pitch Bend Change message */
 
 /* System Common Messages (F0 - F7) */
-#define MIDI_STATUS_SYSEX_START         0xF0  /**< System Exclusive Start */
-#define MIDI_STATUS_MTC_QUARTER_FRAME   0xF1  /**< MIDI Time Code Quarter Frame */
-#define MIDI_STATUS_SONG_POSITION       0xF2  /**< Song Position Pointer */
-#define MIDI_STATUS_SONG_SELECT         0xF3  /**< Song Select */
-#define MIDI_STATUS_UNDEFINED_F4        0xF4  /**< Undefined System Common */
-#define MIDI_STATUS_UNDEFINED_F5        0xF5  /**< Undefined System Common */
-#define MIDI_STATUS_TUNE_REQUEST        0xF6  /**< Tune Request */
-#define MIDI_STATUS_SYSEX_END           0xF7  /**< End of System Exclusive (EOX) */
+#define MIDI1_STATUS_SYSEX_START         0xF0  /**< System Exclusive Start */
+#define MIDI1_STATUS_MTC_QUARTER_FRAME   0xF1  /**< MIDI Time Code Quarter Frame */
+#define MIDI1_STATUS_SONG_POSITION       0xF2  /**< Song Position Pointer */
+#define MIDI1_STATUS_SONG_SELECT         0xF3  /**< Song Select */
+#define MIDI1_STATUS_UNDEFINED_F4        0xF4  /**< Undefined System Common */
+#define MIDI1_STATUS_UNDEFINED_F5        0xF5  /**< Undefined System Common */
+#define MIDI1_STATUS_TUNE_REQUEST        0xF6  /**< Tune Request */
+#define MIDI1_STATUS_SYSEX_END           0xF7  /**< End of System Exclusive (EOX) */
 
 /* System Real-Time Messages (F8 - FF) */
-#define MIDI_STATUS_TIMING_CLOCK        0xF8  /**< Timing Clock (24 per quarter note) */
-#define MIDI_STATUS_UNDEFINED_F9        0xF9  /**< Undefined Real-Time */
-#define MIDI_STATUS_START               0xFA  /**< Start */
-#define MIDI_STATUS_CONTINUE            0xFB  /**< Continue */
-#define MIDI_STATUS_STOP                0xFC  /**< Stop */
-#define MIDI_STATUS_UNDEFINED_FD        0xFD  /**< Undefined Real-Time */
-#define MIDI_STATUS_ACTIVE_SENSING      0xFE  /**< Active Sensing */
-#define MIDI_STATUS_SYSTEM_RESET        0xFF  /**< System Reset */
+#define MIDI1_STATUS_TIMING_CLOCK        0xF8  /**< Timing Clock (24 per quarter note) */
+#define MIDI1_STATUS_UNDEFINED_F9        0xF9  /**< Undefined Real-Time */
+#define MIDI1_STATUS_START               0xFA  /**< Start */
+#define MIDI1_STATUS_CONTINUE            0xFB  /**< Continue */
+#define MIDI1_STATUS_STOP                0xFC  /**< Stop */
+#define MIDI1_STATUS_UNDEFINED_FD        0xFD  /**< Undefined Real-Time */
+#define MIDI1_STATUS_ACTIVE_SENSING      0xFE  /**< Active Sensing */
+#define MIDI1_STATUS_SYSTEM_RESET        0xFF  /**< System Reset */
 
 /** @} */
 
@@ -52,83 +52,81 @@
  */
 
 /* MSB for Continuous Controllers (0-31) */
-#define MIDI_CC_BANK_SELECT_MSB         0x00  /**< Bank Select MSB */
-#define MIDI_CC_MODULATION_WHEEL_MSB    0x01  /**< Modulation Wheel MSB */
-#define MIDI_CC_BREATH_CONTROLLER_MSB   0x02  /**< Breath Controller MSB */
-#define MIDI_CC_FOOT_CONTROLLER_MSB     0x04  /**< Foot Controller MSB */
-#define MIDI_CC_PORTAMENTO_TIME_MSB     0x05  /**< Portamento Time MSB */
-#define MIDI_CC_DATA_ENTRY_MSB          0x06  /**< Data Entry MSB */
-#define MIDI_CC_CHANNEL_VOLUME_MSB      0x07  /**< Channel Volume MSB */
-#define MIDI_CC_BALANCE_MSB             0x08  /**< Balance MSB */
-#define MIDI_CC_PAN_MSB                 0x0A  /**< Pan MSB */
-#define MIDI_CC_EXPRESSION_MSB          0x0B  /**< Expression Controller MSB */
-#define MIDI_CC_EFFECT_CONTROL_1_MSB    0x0C  /**< Effect Control 1 MSB */
-#define MIDI_CC_EFFECT_CONTROL_2_MSB    0x0D  /**< Effect Control 2 MSB */
-#define MIDI_CC_GENERAL_PURPOSE_1_MSB   0x10  /**< General Purpose Controller 1 MSB */
-#define MIDI_CC_GENERAL_PURPOSE_2_MSB   0x11  /**< General Purpose Controller 2 MSB */
-#define MIDI_CC_GENERAL_PURPOSE_3_MSB   0x12  /**< General Purpose Controller 3 MSB */
-#define MIDI_CC_GENERAL_PURPOSE_4_MSB   0x13  /**< General Purpose Controller 4 MSB */
+#define MIDI1_CC_BANK_SELECT_MSB         0x00  /**< Bank Select MSB */
+#define MIDI1_CC_MODULATION_WHEEL_MSB    0x01  /**< Modulation Wheel MSB */
+#define MIDI1_CC_BREATH_CONTROLLER_MSB   0x02  /**< Breath Controller MSB */
+#define MIDI1_CC_FOOT_CONTROLLER_MSB     0x04  /**< Foot Controller MSB */
+#define MIDI1_CC_PORTAMENTO_TIME_MSB     0x05  /**< Portamento Time MSB */
+#define MIDI1_CC_DATA_ENTRY_MSB          0x06  /**< Data Entry MSB */
+#define MIDI1_CC_CHANNEL_VOLUME_MSB      0x07  /**< Channel Volume MSB */
+#define MIDI1_CC_BALANCE_MSB             0x08  /**< Balance MSB */
+#define MIDI1_CC_PAN_MSB                 0x0A  /**< Pan MSB */
+#define MIDI1_CC_EXPRESSION_MSB          0x0B  /**< Expression Controller MSB */
+#define MIDI1_CC_EFFECT_CONTROL_1_MSB    0x0C  /**< Effect Control 1 MSB */
+#define MIDI1_CC_EFFECT_CONTROL_2_MSB    0x0D  /**< Effect Control 2 MSB */
+#define MIDI1_CC_GENERAL_PURPOSE_1_MSB   0x10  /**< General Purpose Controller 1 MSB */
+#define MIDI1_CC_GENERAL_PURPOSE_2_MSB   0x11  /**< General Purpose Controller 2 MSB */
+#define MIDI1_CC_GENERAL_PURPOSE_3_MSB   0x12  /**< General Purpose Controller 3 MSB */
+#define MIDI1_CC_GENERAL_PURPOSE_4_MSB   0x13  /**< General Purpose Controller 4 MSB */
 
 /* LSB for Continuous Controllers (32-63) */
-#define MIDI_CC_BANK_SELECT_LSB         0x20  /**< Bank Select LSB */
-#define MIDI_CC_MODULATION_WHEEL_LSB    0x21  /**< Modulation Wheel LSB */
-#define MIDI_CC_BREATH_CONTROLLER_LSB   0x22  /**< Breath Controller LSB */
-#define MIDI_CC_FOOT_CONTROLLER_LSB     0x24  /**< Foot Controller LSB */
-#define MIDI_CC_PORTAMENTO_TIME_LSB     0x25  /**< Portamento Time LSB */
-#define MIDI_CC_DATA_ENTRY_LSB          0x26  /**< Data Entry LSB */
-#define MIDI_CC_CHANNEL_VOLUME_LSB      0x27  /**< Channel Volume LSB */
-#define MIDI_CC_BALANCE_LSB             0x28  /**< Balance LSB */
-#define MIDI_CC_PAN_LSB                 0x2A  /**< Pan LSB */
-#define MIDI_CC_EXPRESSION_LSB          0x2B  /**< Expression Controller LSB */
-#define MIDI_CC_EFFECT_CONTROL_1_LSB    0x2C  /**< Effect Control 1 LSB */
-#define MIDI_CC_EFFECT_CONTROL_2_LSB    0x2D  /**< Effect Control 2 LSB */
-#define MIDI_CC_GENERAL_PURPOSE_1_LSB   0x30  /**< General Purpose Controller 1 LSB */
-#define MIDI_CC_GENERAL_PURPOSE_2_LSB   0x31  /**< General Purpose Controller 2 LSB */
-#define MIDI_CC_GENERAL_PURPOSE_3_LSB   0x32  /**< General Purpose Controller 3 LSB */
-#define MIDI_CC_GENERAL_PURPOSE_4_LSB   0x33  /**< General Purpose Controller 4 LSB */
+#define MIDI1_CC_BANK_SELECT_LSB         0x20  /**< Bank Select LSB */
+#define MIDI1_CC_MODULATION_WHEEL_LSB    0x21  /**< Modulation Wheel LSB */
+#define MIDI1_CC_BREATH_CONTROLLER_LSB   0x22  /**< Breath Controller LSB */
+#define MIDI1_CC_FOOT_CONTROLLER_LSB     0x24  /**< Foot Controller LSB */
+#define MIDI1_CC_PORTAMENTO_TIME_LSB     0x25  /**< Portamento Time LSB */
+#define MIDI1_CC_DATA_ENTRY_LSB          0x26  /**< Data Entry LSB */
+#define MIDI1_CC_CHANNEL_VOLUME_LSB      0x27  /**< Channel Volume LSB */
+#define MIDI1_CC_BALANCE_LSB             0x28  /**< Balance LSB */
+#define MIDI1_CC_PAN_LSB                 0x2A  /**< Pan LSB */
+#define MIDI1_CC_EXPRESSION_LSB          0x2B  /**< Expression Controller LSB */
+#define MIDI1_CC_EFFECT_CONTROL_1_LSB    0x2C  /**< Effect Control 1 LSB */
+#define MIDI1_CC_EFFECT_CONTROL_2_LSB    0x2D  /**< Effect Control 2 LSB */
+#define MIDI1_CC_GENERAL_PURPOSE_1_LSB   0x30  /**< General Purpose Controller 1 LSB */
+#define MIDI1_CC_GENERAL_PURPOSE_2_LSB   0x31  /**< General Purpose Controller 2 LSB */
+#define MIDI1_CC_GENERAL_PURPOSE_3_LSB   0x32  /**< General Purpose Controller 3 LSB */
+#define MIDI1_CC_GENERAL_PURPOSE_4_LSB   0x33  /**< General Purpose Controller 4 LSB */
 
 /* Single Byte Controllers (64-119) */
-#define MIDI_CC_SUSTAIN_PEDAL           0x40  /**< Sustain Pedal (Damper) */
-#define MIDI_CC_PORTAMENTO_ONOFF        0x41  /**< Portamento On/Off */
-#define MIDI_CC_SOSTENUTO               0x42  /**< Sostenuto */
-#define MIDI_CC_SOFT_PEDAL              0x43  /**< Soft Pedal */
-#define MIDI_CC_LEGATO_FOOTSWITCH       0x44  /**< Legato Footswitch */
-#define MIDI_CC_HOLD_2                  0x45  /**< Hold 2 */
+#define MIDI1_CC_SUSTAIN_PEDAL           0x40  /**< Sustain Pedal (Damper) */
+#define MIDI1_CC_PORTAMENTO_ONOFF        0x41  /**< Portamento On/Off */
+#define MIDI1_CC_SOSTENUTO               0x42  /**< Sostenuto */
+#define MIDI1_CC_SOFT_PEDAL              0x43  /**< Soft Pedal */
+#define MIDI1_CC_LEGATO_FOOTSWITCH       0x44  /**< Legato Footswitch */
+#define MIDI1_CC_HOLD_2                  0x45  /**< Hold 2 */
 
 /* Sound Controllers (70-79) */
-#define MIDI_CC_SOUND_VARIATION         0x46  /**< Sound Controller 1 (Sound Variation) */
-#define MIDI_CC_TIMBRE_INTENSITY        0x47  /**< Sound Controller 2 (Timbre/Harmonic Intensity) */
-#define MIDI_CC_RELEASE_TIME            0x48  /**< Sound Controller 3 (Release Time) */
-#define MIDI_CC_ATTACK_TIME             0x49  /**< Sound Controller 4 (Attack Time) */
-#define MIDI_CC_BRIGHTNESS              0x4A  /**< Sound Controller 5 (Brightness) */
-#define MIDI_CC_SOUND_CONTROLLER_6      0x4B  /**< Sound Controller 6 */
-#define MIDI_CC_SOUND_CONTROLLER_7      0x4C  /**< Sound Controller 7 */
-#define MIDI_CC_SOUND_CONTROLLER_8      0x4D  /**< Sound Controller 8 */
-#define MIDI_CC_SOUND_CONTROLLER_9      0x4E  /**< Sound Controller 9 */
-#define MIDI_CC_SOUND_CONTROLLER_10     0x4F  /**< Sound Controller 10 */
+#define MIDI1_CC_SOUND_VARIATION         0x46  /**< Sound Controller 1 (Sound Variation) */
+#define MIDI1_CC_TIMBRE_INTENSITY        0x47  /**< Sound Controller 2 (Timbre/Harmonic Intensity) */
+#define MIDI1_CC_RELEASE_TIME            0x48  /**< Sound Controller 3 (Release Time) */
+#define MIDI1_CC_ATTACK_TIME             0x49  /**< Sound Controller 4 (Attack Time) */
+#define MIDI1_CC_BRIGHTNESS              0x4A  /**< Sound Controller 5 (Brightness) */
+#define MIDI1_CC_SOUND_CONTROLLER_6      0x4B  /**< Sound Controller 6 */
+#define MIDI1_CC_SOUND_CONTROLLER_7      0x4C  /**< Sound Controller 7 */
+#define MIDI1_CC_SOUND_CONTROLLER_8      0x4D  /**< Sound Controller 8 */
+#define MIDI1_CC_SOUND_CONTROLLER_9      0x4E  /**< Sound Controller 9 */
+#define MIDI1_CC_SOUND_CONTROLLER_10     0x4F  /**< Sound Controller 10 */
 
 /* General Purpose Controllers (80-83) */
-#define MIDI_CC_GENERAL_PURPOSE_5       0x50  /**< General Purpose Controller 5 */
-#define MIDI_CC_GENERAL_PURPOSE_6       0x51  /**< General Purpose Controller 6 */
-#define MIDI_CC_GENERAL_PURPOSE_7       0x52  /**< General Purpose Controller 7 */
-#define MIDI_CC_GENERAL_PURPOSE_8       0x53  /**< General Purpose Controller 8 */
-#define MIDI_CC_PORTAMENTO_CONTROL      0x54  /**< Portamento Control */
-
+#define MIDI1_CC_GENERAL_PURPOSE_5       0x50  /**< General Purpose Controller 5 */
+#define MIDI1_CC_GENERAL_PURPOSE_6       0x51  /**< General Purpose Controller 6 */
+#define MIDI1_CC_GENERAL_PURPOSE_7       0x52  /**< General Purpose Controller 7 */
+#define MIDI1_CC_GENERAL_PURPOSE_8       0x53  /**< General Purpose Controller 8 */
+#define MIDI1_CC_PORTAMENTO_CONTROL      0x54  /**< Portamento Control */
 /* Effects Depth (91-95) */
-#define MIDI_CC_EFFECTS_DEPTH_1         0x5B  /**< Effects 1 Depth (External Effects) */
-#define MIDI_CC_EFFECTS_DEPTH_2         0x5C  /**< Effects 2 Depth (Tremolo) */
-#define MIDI_CC_EFFECTS_DEPTH_3         0x5D  /**< Effects 3 Depth (Chorus) */
-#define MIDI_CC_EFFECTS_DEPTH_4         0x5E  /**< Effects 4 Depth (Celeste/Detune) */
-#define MIDI_CC_EFFECTS_DEPTH_5         0x5F  /**< Effects 5 Depth (Phaser) */
+#define MIDI1_CC_EFFECTS_DEPTH_1         0x5B  /**< Effects 1 Depth (External Effects) */
+#define MIDI1_CC_EFFECTS_DEPTH_2         0x5C  /**< Effects 2 Depth (Tremolo) */
+#define MIDI1_CC_EFFECTS_DEPTH_3         0x5D  /**< Effects 3 Depth (Chorus) */
+#define MIDI1_CC_EFFECTS_DEPTH_4         0x5E  /**< Effects 4 Depth (Celeste/Detune) */
+#define MIDI1_CC_EFFECTS_DEPTH_5         0x5F  /**< Effects 5 Depth (Phaser) */
 
 /* Parameter Numbers (98-101) */
-#define MIDI_CC_DATA_INCREMENT          0x60  /**< Data Increment */
-#define MIDI_CC_DATA_DECREMENT          0x61  /**< Data Decrement */
-#define MIDI_CC_NRPN_LSB                0x62  /**< Non-Registered Parameter Number LSB */
-#define MIDI_CC_NRPN_MSB                0x63  /**< Non-Registered Parameter Number MSB */
-#define MIDI_CC_RPN_LSB                 0x64  /**< Registered Parameter Number LSB */
-#define MIDI_CC_RPN_MSB                 0x65  /**< Registered Parameter Number MSB */
-
+#define MIDI1_CC_DATA_INCREMENT          0x60  /**< Data Increment */
+#define MIDI1_CC_DATA_DECREMENT          0x61  /**< Data Decrement */
+#define MIDI1_CC_NRPN_LSB                0x62  /**< Non-Registered Parameter Number LSB */
+#define MIDI1_CC_NRPN_MSB                0x63  /**< Non-Registered Parameter Number MSB */
+#define MIDI1_CC_RPN_LSB                 0x64  /**< Registered Parameter Number LSB */
+#define MIDI1_CC_RPN_MSB                 0x65  /**< Registered Parameter Number MSB */
 /** @} */
 
 /**
@@ -137,14 +135,14 @@
  * @{
  */
 
-#define MIDI_CC_ALL_SOUND_OFF           0x78  /**< All Sound Off (120) */
-#define MIDI_CC_RESET_ALL_CONTROLLERS   0x79  /**< Reset All Controllers (121) */
-#define MIDI_CC_LOCAL_CONTROL           0x7A  /**< Local Control (122) */
-#define MIDI_CC_ALL_NOTES_OFF           0x7B  /**< All Notes Off (123) */
-#define MIDI_CC_OMNI_MODE_OFF           0x7C  /**< Omni Mode Off (124) */
-#define MIDI_CC_OMNI_MODE_ON            0x7D  /**< Omni Mode On (125) */
-#define MIDI_CC_MONO_MODE_ON            0x7E  /**< Mono Mode On (Poly Off) (126) */
-#define MIDI_CC_POLY_MODE_ON            0x7F  /**< Poly Mode On (Mono Off) (127) */
+#define MIDI1_CC_ALL_SOUND_OFF           0x78  /**< All Sound Off (120) */
+#define MIDI1_CC_RESET_ALL_CONTROLLERS   0x79  /**< Reset All Controllers (121) */
+#define MIDI1_CC_LOCAL_CONTROL           0x7A  /**< Local Control (122) */
+#define MIDI1_CC_ALL_NOTES_OFF           0x7B  /**< All Notes Off (123) */
+#define MIDI1_CC_OMNI_MODE_OFF           0x7C  /**< Omni Mode Off (124) */
+#define MIDI1_CC_OMNI_MODE_ON            0x7D  /**< Omni Mode On (125) */
+#define MIDI1_CC_MONO_MODE_ON            0x7E  /**< Mono Mode On (Poly Off) (126) */
+#define MIDI1_CC_POLY_MODE_ON            0x7F  /**< Poly Mode On (Mono Off) (127) */
 
 /** @} */
 
@@ -154,16 +152,16 @@
  * @{
  */
 
-#define MIDI_RPN_PITCH_BEND_SENSITIVITY_MSB  0x00  /**< Pitch Bend Sensitivity MSB */
-#define MIDI_RPN_PITCH_BEND_SENSITIVITY_LSB  0x00  /**< Pitch Bend Sensitivity LSB */
-#define MIDI_RPN_FINE_TUNING_MSB             0x00  /**< Fine Tuning MSB */
-#define MIDI_RPN_FINE_TUNING_LSB             0x01  /**< Fine Tuning LSB */
-#define MIDI_RPN_COARSE_TUNING_MSB           0x00  /**< Coarse Tuning MSB */
-#define MIDI_RPN_COARSE_TUNING_LSB           0x02  /**< Coarse Tuning LSB */
-#define MIDI_RPN_TUNING_PROGRAM_SELECT_MSB   0x00  /**< Tuning Program Select MSB */
-#define MIDI_RPN_TUNING_PROGRAM_SELECT_LSB   0x03  /**< Tuning Program Select LSB */
-#define MIDI_RPN_TUNING_BANK_SELECT_MSB      0x00  /**< Tuning Bank Select MSB */
-#define MIDI_RPN_TUNING_BANK_SELECT_LSB      0x04  /**< Tuning Bank Select LSB */
+#define MIDI1_RPN_PITCH_BEND_SENSITIVITY_MSB  0x00  /**< Pitch Bend Sensitivity MSB */
+#define MIDI1_RPN_PITCH_BEND_SENSITIVITY_LSB  0x00  /**< Pitch Bend Sensitivity LSB */
+#define MIDI1_RPN_FINE_TUNING_MSB             0x00  /**< Fine Tuning MSB */
+#define MIDI1_RPN_FINE_TUNING_LSB             0x01  /**< Fine Tuning LSB */
+#define MIDI1_RPN_COARSE_TUNING_MSB           0x00  /**< Coarse Tuning MSB */
+#define MIDI1_RPN_COARSE_TUNING_LSB           0x02  /**< Coarse Tuning LSB */
+#define MIDI1_RPN_TUNING_PROGRAM_SELECT_MSB   0x00  /**< Tuning Program Select MSB */
+#define MIDI1_RPN_TUNING_PROGRAM_SELECT_LSB   0x03  /**< Tuning Program Select LSB */
+#define MIDI1_RPN_TUNING_BANK_SELECT_MSB      0x00  /**< Tuning Bank Select MSB */
+#define MIDI1_RPN_TUNING_BANK_SELECT_LSB      0x04  /**< Tuning Bank Select LSB */
 
 /** @} */
 
@@ -172,22 +170,23 @@
  * @brief Commonly used bit masks for MIDI message parsing
  * @{
  */
-
-
-#define MIDI_STATUS_BIT_MASK        0x80      /**< Status byte MSB mask */
-#define MIDI_DATA_BIT_MASK          0x7F      /**< Data byte mask (7-bit) */
-#define MIDI_CHANNEL_MASK           0x0F      /**< Channel number mask (4-bit) */
-#define MIDI_STATUS_TYPE_MASK       0xF0      /**< Status type mask (upper nibble) */
+#define MIDI1_STATUS_BIT_MASK        0x80      /**< Status byte MSB mask */
+#define MIDI1_DATA_BIT_MASK          0x7F      /**< Data byte mask (7-bit) */
+#define MIDI1_CHANNEL_MASK           0x0F      /**< Channel number mask (4-bit) */
+#define MIDI1_STATUS_TYPE_MASK       0xF0      /**< Status type mask (upper nibble) */
 
 /** @} */
 
-/* Helper macros to extract fields from midi_message_t */
-#define MIDI_MSG_GET_STATUS(msg) ((msg)->status_byte) & 0xF0
+/**
+ * @defgroup MIDI_MSG_ACCESSORS MIDI Message Accessor Macros
+ * @brief Macros to access fields in midi_message_t structure
+ * @{
+ */
+#define MIDI1_MSG_GET_STATUS(msg) ((msg)->status_byte) & 0xF0 /**< Get status type */
+#define MIDI1_MSG_GET_CHANNEL(msg) ((msg)->status_byte) & 0x0F /**< Get channel number */
+#define MIDI1_MSG_GET_DATA1(msg) ((msg)->data[0]) /**< Get first data byte */
+#define MIDI1_MSG_GET_DATA2(msg) ((msg)->data[1]) /**< Get second data byte */
 
-#define MIDI_MSG_GET_CHANNEL(msg) ((msg)->status_byte) & 0x0F
-
-#define MIDI_MSG_GET_DATA1(msg) ((msg)->data[0])
-
-#define MIDI_MSG_GET_DATA2(msg) ((msg)->data[1])
+/** @} */
 
 #endif /* MIDI_DEFS_H */

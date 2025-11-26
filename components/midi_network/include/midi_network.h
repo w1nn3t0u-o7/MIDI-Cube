@@ -7,7 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
-#include "ump_types.h"
+#include "ump_packet.h"
 
 // Helper macro: round up division
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
@@ -136,11 +136,5 @@ esp_err_t midi_net_send_ump(midi_net_session_t *session, const ump_packet_t *ump
  * @brief Broadcast UMP packet to all established sessions
  */
 esp_err_t midi_net_broadcast_ump(midi_net_ep_t *ep, const ump_packet_t *ump);
-
-/**
- * @brief Process incoming UDP packet
- */
-void netmidi2_handle_packet(midi_net_ep_t *ep, uint8_t *data, size_t len, 
-                            struct sockaddr_in *peer_addr);
 
 #endif // MIDI_NETWORK_H

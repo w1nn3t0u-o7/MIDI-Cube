@@ -1,11 +1,10 @@
-void func(void);
 #ifndef USB_MIDI_DEVICE_H
 #define USB_MIDI_DEVICE_H
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
-#include "midi_types.h"
+#include "midi_message.h"
 
 // Descriptor length
 #define TUSB_DESCRIPTOR_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_MIDI_DESC_LEN)
@@ -41,6 +40,14 @@ typedef struct {
 // Public API
 esp_err_t midi_usbd_init(void);
 esp_err_t midi_usbd_register_rx_callback(midi_usbd_rx_cb_t callback);
+
+/**
+ * @brief Send a complete MIDI message via USB
+ * 
+ * @param cable Cable number (0-15)
+ * @param msg Pointer to MIDI message structure
+ * @return ESP_OK on success, error code otherwise
+ */
 esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg);
 bool midi_usbd_is_mounted(void);
 

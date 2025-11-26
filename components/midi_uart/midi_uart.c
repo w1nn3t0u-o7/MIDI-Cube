@@ -3,13 +3,13 @@
  * @brief MIDI UART Driver Implementation
  */
 
-#include "midi_uart.h"
-#include "midi_message.h"
-#include "midi_router.h"
 #include "driver/uart.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include <string.h>
+
+#include "midi_uart.h"
+#include "midi_message.h"
+#include "midi_router.h"
 
 static const char *TAG = "midi_uart";
 
@@ -54,7 +54,6 @@ esp_err_t midi_uart_configure(QueueHandle_t *uart_event_queue)
     }
     
     // Install UART driver with RX/TX buffers
-    // ESP-IDF v5.5: Pass pointer to queue handle as out parameter
     err = uart_driver_install(
         MIDI_UART_PORT,
         MIDI_UART_RX_BUF_SIZE,
@@ -81,12 +80,6 @@ esp_err_t midi_uart_deconfigure(QueueHandle_t *uart_event_queue)
     return err;
 }
 
-/**
- * @brief UART RX Task
- * 
- * Continuously reads from UART, feeds to MIDI parser,
- * calls callback on complete messages
- */
 static void midi_uart_rx_task(void *arg)
 {
     midi_uart_driver_t *driver = (midi_uart_driver_t *)arg;
@@ -103,17 +96,17 @@ static void midi_uart_rx_task(void *arg)
         vTaskDelete(NULL);
         return;
     }
-    ESP_LOGI(TAG, "RX callback: %p", driver->rx_callback);  // ← Check if NULL
+    ESP_LOGD(TAG, "RX callback: %p", driver->rx_callback);  // ← Check if NULL
     while (1) {
         // Wait for UART event
         if (xQueueReceive(uart_queue, &event, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGI(TAG, "Event: type=%d, size=%d", event.type, event.size);
+            ESP_LOGD(TAG, "Event: type=%d, size=%d", event.type, event.size);
             switch (event.type) {
                 case UART_DATA: {
                     uint8_t data[128];
                     int len = uart_read_bytes(MIDI_UART_PORT, data, 
                                               event.size, 0);
-                    ESP_LOGI(TAG, "Read %d bytes: ", len);
+                    ESP_LOGD(TAG, "Read %d bytes: ", len);
                     if (len > 0) {
                         midi_uart_send_bytes(data, len);
                         // Process each byte
@@ -121,7 +114,7 @@ static void midi_uart_rx_task(void *arg)
                             rx_byte = data[i];
                                 
                             // Feed byte to MIDI parser
-                            esp_err_t err = midi_parser_parse_byte(
+                            esp_err_t err = midi1_parser_parse_byte(
                                 &driver->parser,
                                 rx_byte,
                                 &msg,
@@ -136,11 +129,11 @@ static void midi_uart_rx_task(void *arg)
                             // If message complete, call callback
                             if (complete) {
                                 // Debug logging (verbose)
-                                ESP_LOGI(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
-                                            msg.status_byte, MIDI_MSG_GET_CHANNEL(&msg), msg.data[0], msg.data[1]);
+                                ESP_LOGD(TAG, "RX: Status=0x%02X, Ch=%d, D1=%d, D2=%d",
+                                            msg.status_byte, MIDI1_MSG_GET_CHANNEL(&msg), msg.data[0], msg.data[1]);
                                 // Call user callback
                                 if (driver->rx_callback) {
-                                    driver->rx_callback(&msg, driver->rx_callback_ctx);
+                                    driver->rx_callback(&msg);
                                 }
                             }
                         }
@@ -181,14 +174,9 @@ static void midi_uart_rx_task(void *arg)
                     break;
             }
         }
-        // Timeout - continue loop (allows clean task deletion if needed)
-        //vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-/**
- * @brief Initialize MIDI UART driver
- */
 esp_err_t midi_uart_init(void)
 {
     uart_driver.is_initialized = false;
@@ -207,7 +195,7 @@ esp_err_t midi_uart_init(void)
     }
     
     // Initialize MIDI parser
-    err = midi_parser_init(&uart_driver.parser);
+    err = midi1_parser_init(&uart_driver.parser);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Parser init failed: %s", esp_err_to_name(err));
         midi_uart_deconfigure(&uart_driver.uart_event_queue);
@@ -215,7 +203,6 @@ esp_err_t midi_uart_init(void)
     }
 
     uart_driver.rx_callback = uart_rx_callback;
-    uart_driver.rx_callback_ctx = NULL;
 
     // Create RX task
     BaseType_t task_created = xTaskCreatePinnedToCore(
@@ -240,9 +227,6 @@ esp_err_t midi_uart_init(void)
     return ESP_OK;
 }
 
-/**
- * @brief Deinitialize MIDI UART driver
- */
 esp_err_t midi_uart_deinit(void)
 {
     if (!uart_driver.is_initialized) {
@@ -266,9 +250,6 @@ esp_err_t midi_uart_deinit(void)
     return ESP_OK;
 }
 
-/**
- * @brief Send MIDI message
- */
 esp_err_t midi_uart_send_message(const midi_message_t *msg)
 {
     if (!uart_driver.is_initialized) {
@@ -283,7 +264,7 @@ esp_err_t midi_uart_send_message(const midi_message_t *msg)
     uint8_t buffer[16];  // Max MIDI message size
     size_t bytes_written = 0;
     
-    esp_err_t err = midi_message_to_bytes(msg, buffer, sizeof(buffer), &bytes_written);
+    esp_err_t err = midi1_message_to_bytes(msg, buffer, sizeof(buffer), &bytes_written);
     if (err != ESP_OK) {
         return err;
     }
@@ -301,9 +282,6 @@ esp_err_t midi_uart_send_message(const midi_message_t *msg)
     }
 }
 
-/**
- * @brief Send raw MIDI bytes
- */
 esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len)
 {
     if (!uart_driver.is_initialized) {
@@ -323,17 +301,11 @@ esp_err_t midi_uart_send_bytes(const uint8_t *data, size_t len)
     }
 }
 
-/**
- * @brief Check if initialized
- */
 bool midi_uart_is_initialized(void)
 {
     return uart_driver.is_initialized;
 }
 
-/**
- * @brief Flush TX buffer
- */
 esp_err_t midi_uart_flush_tx(uint32_t timeout_ms)
 {
     if (!uart_driver.is_initialized) {

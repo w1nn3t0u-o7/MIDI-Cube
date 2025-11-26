@@ -8,56 +8,14 @@
  * - System Exclusive parsing
  */
 
-#include "midi_parser.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include <string.h>
+
+#include "midi_parser.h"
 
 static const char *TAG = "midi_parser";
 
-/**
- * @brief Get expected data byte count for status byte
- */
-uint8_t midi_get_data_byte_count(uint8_t status) {
-    uint8_t status_type = status & MIDI_STATUS_TYPE_MASK;
-    
-    /* Channel Voice/Mode Messages */
-    if (midi_is_channel_message(status)) {
-        switch (status_type) {
-            case MIDI_STATUS_PROGRAM_CHANGE:
-            case MIDI_STATUS_CHANNEL_PRESSURE:
-                return 1;  // Single data byte
-            default:
-                return 2;  // Two data bytes
-        }
-    }
-    
-    /* System Common Messages */
-    if (midi_is_system_common_message(status)) {
-        switch (status) {
-            case MIDI_STATUS_MTC_QUARTER_FRAME:
-            case MIDI_STATUS_SONG_SELECT:
-                return 1;
-            case MIDI_STATUS_SONG_POSITION:
-                return 2;
-            case MIDI_STATUS_TUNE_REQUEST:
-            case MIDI_STATUS_SYSEX_END:
-                return 0;
-            case MIDI_STATUS_SYSEX_START:
-                return 0;  // Variable length
-            default:
-                return 0;
-        }
-    }
-    
-    /* Real-Time Messages (0xF8-0xFF) */
-    return 0;  // No data bytes
-}
-
-/**
- * @brief Initialize parser state
- */
-esp_err_t midi_parser_init(midi_parser_state_t *state)
+esp_err_t midi1_parser_init(midi_parser_state_t *state)
 {
     if (!state) {
         return ESP_ERR_INVALID_ARG;
@@ -65,15 +23,13 @@ esp_err_t midi_parser_init(midi_parser_state_t *state)
     
     memset(state, 0, sizeof(midi_parser_state_t));
     
-    ESP_LOGI(TAG, "MIDI parser initialized");
+    ESP_LOGD(TAG, "MIDI parser initialized");
     
     return ESP_OK;
 }
 
-/**
- * @brief Reset parser to initial state
- */
-esp_err_t midi_parser_reset(midi_parser_state_t *state) {
+esp_err_t midi1_parser_reset(midi_parser_state_t *state)
+{
     if (!state) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -88,16 +44,9 @@ esp_err_t midi_parser_reset(midi_parser_state_t *state) {
     return ESP_OK;
 }
 
-/**
- * @brief Parse incoming MIDI byte
- * 
- * Full implementation based on MIDI 1.0 spec section on Running Status
- * and message parsing (pages 5-6, A-2 to A-3 of spec)
- */
-esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
-                                 uint8_t byte,
-                                 midi_message_t *msg,
-                                 bool *message_complete) {
+esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
+                                 midi_message_t *msg, bool *message_complete)
+{
     if (!state || !msg || !message_complete) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -109,11 +58,10 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
      * and data bytes. They must be processed immediately without 
      * affecting running status or current message assembly. 
      * Spec: Page 30, "System Real Time Messages" */
-    if (midi_is_realtime_message(byte)) {
+    if (midi1_is_realtime_message(byte)) {
         memset(msg, 0, sizeof(midi_message_t));
-        //msg->type = MIDI_MSG_TYPE_SYSTEM_REALTIME;
-        msg->status_byte = byte;
         
+        msg->status_byte = byte;
         *message_complete = true;
         
         /* Running status and data collection NOT affected */
@@ -121,10 +69,10 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
     }
     
     /* === STATUS BYTES (0x80-0xF7) === */
-    if (midi_is_status_byte(byte)) {
+    if (midi1_is_status_byte(byte)) {
         
         /* === SYSTEM EXCLUSIVE START (0xF0) === */
-        if (byte == MIDI_STATUS_SYSEX_START) {
+        if (byte == MIDI1_STATUS_SYSEX_START) {
             state->in_sysex = true;
             state->running_status = 0;  // Clear running status (spec page 5)
             ESP_LOGW(TAG, "SysEx Start received. SysEx handling not implemented.");
@@ -132,14 +80,13 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         }
         
         /* === SYSTEM EXCLUSIVE END (0xF7) === */
-        if (byte == MIDI_STATUS_SYSEX_END) {
+        if (byte == MIDI1_STATUS_SYSEX_END) {
             if (state->in_sysex) {
                 state->in_sysex = false;
                 
                 /* Create SysEx message */
                 memset(msg, 0, sizeof(midi_message_t));
-                //msg->type = MIDI_MSG_TYPE_SYSTEM_EXCLUSIVE;
-                msg->status_byte = MIDI_STATUS_SYSEX_START;
+                msg->status_byte = MIDI1_STATUS_SYSEX_START;
                 
                 *message_complete = true;
                 
@@ -150,14 +97,13 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         
         /* === SYSTEM COMMON MESSAGES (0xF1-0xF6) === */
         /* System Common messages clear running status (spec page 5) */
-        if (midi_is_system_common_message(byte)) {
+        if (midi1_is_system_common_message(byte)) {
             state->in_sysex = false;  // Terminate SysEx if active
             state->running_status = 0;  // Clear running status
             state->data_index = 0;
-            state->expected_data_bytes = midi_get_data_byte_count(byte);
+            state->expected_data_bytes = midi1_get_data_byte_count(byte);
             
             memset(msg, 0, sizeof(midi_message_t));
-            //msg->type = MIDI_MSG_TYPE_SYSTEM_COMMON;
             msg->status_byte = byte;
             
             /* Single-byte System Common messages */
@@ -169,13 +115,12 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
         }
         
         /* === CHANNEL VOICE/MODE MESSAGES (0x80-0xEF) === */
-        if (midi_is_channel_message(byte)) {
+        if (midi1_is_channel_message(byte)) {
             state->in_sysex = false;  // Terminate SysEx if active
             state->running_status = byte;  // Store for running status
             state->data_index = 0;
-            state->expected_data_bytes = midi_get_data_byte_count(byte);
+            state->expected_data_bytes = midi1_get_data_byte_count(byte);
             
-            //msg->type = MIDI_MSG_TYPE_CHANNEL;
             msg->status_byte = byte;
             
             return ESP_OK;
@@ -187,7 +132,7 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
     }
     
     /* === DATA BYTES (0x00-0x7F) === */
-    if (midi_is_data_byte(byte)) {
+    if (midi1_is_data_byte(byte)) {
         
         /* Handle SysEx data */
         if (state->in_sysex) {
@@ -224,4 +169,3 @@ esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
 
     return ESP_OK;
 }
-

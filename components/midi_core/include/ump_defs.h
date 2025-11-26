@@ -10,7 +10,8 @@
 #define UMP_DEFS_H
 
 #include <stdint.h>
-#include "midi_defs.h"
+
+#define UMP_MAX_WORDS               4     /**< Maximum words in a UMP */
 
 /**
  * @defgroup UMP_MACROS UMP Helper Macros
@@ -45,7 +46,6 @@
  * @brief Message Type field values (bits 31-28 of first word)
  * @{
  */
-
 #define UMP_MT_UTILITY              0x0   /**< Utility Messages (32-bit) */
 #define UMP_MT_SYSTEM               0x1   /**< System Real Time and System Common (32-bit) */
 #define UMP_MT_MIDI1_CHANNEL_VOICE  0x2   /**< MIDI 1.0 Channel Voice Messages (32-bit) */
@@ -62,50 +62,6 @@
 #define UMP_MT_FLEX_DATA            0xD   /**< Flex Data Messages (128-bit) */
 #define UMP_MT_RESERVED_E           0xE   /**< Reserved for future use (128-bit) */
 #define UMP_MT_UMP_STREAM           0xF   /**< UMP Stream Messages (128-bit) */
-
-/** @} */
-
-/**
- * @defgroup UMP_SIZES UMP Packet Sizes
- * @{
- */
-
-#define UMP_PACKET_SIZE_32BIT       1     /**< 1 x 32-bit word (4 bytes) */
-#define UMP_PACKET_SIZE_64BIT       2     /**< 2 x 32-bit words (8 bytes) */
-#define UMP_PACKET_SIZE_96BIT       3     /**< 3 x 32-bit words (12 bytes) */
-#define UMP_PACKET_SIZE_128BIT      4     /**< 4 x 32-bit words (16 bytes) */
-
-#define UMP_MAX_WORDS               4     /**< Maximum words in a UMP */
-#define UMP_MAX_BYTES               16    /**< Maximum bytes in a UMP (4 words × 4 bytes) */
-
-/** @} */
-
-/**
- * @defgroup UMP_GROUPS UMP Group Field
- * @brief Group addressing (16 independent groups, each with 16 channels)
- * @{
- */
-
-#define UMP_GROUP_MIN               0     /**< Minimum group number */
-#define UMP_GROUP_MAX               15    /**< Maximum group number */
-#define UMP_GROUPS_COUNT            16    /**< Total number of groups */
-#define UMP_GROUP_MASK              0x0F  /**< Group field mask (4 bits) */
-
-/** Total channels available (16 groups × 16 channels) */
-#define UMP_TOTAL_CHANNELS          (UMP_GROUPS_COUNT * MIDI_CHANNELS)
-
-/** @} */
-
-/**
- * @defgroup UMP_UTILITY_STATUS Utility Message Status Values
- * @{
- */
-
-#define UMP_UTILITY_NOOP            0x00  /**< No Operation */
-#define UMP_UTILITY_JR_CLOCK        0x01  /**< Jitter Reduction Clock */
-#define UMP_UTILITY_JR_TIMESTAMP    0x02  /**< Jitter Reduction Timestamp */
-#define UMP_UTILITY_DCTPQ           0x03  /**< Delta Clockstamp Ticks Per Quarter Note */
-#define UMP_UTILITY_DC_TICKS        0x04  /**< Delta Clockstamp */
 
 /** @} */
 
@@ -133,14 +89,14 @@
 /** @} */
 
 /**
- * @defgroup MIDI2_RESOLUTION MIDI 2.0 Data Resolution
+ * @defgroup UMP_UTILITY_STATUS Utility Message Status Values
  * @{
  */
-
-#define MIDI2_RESOLUTION_16BIT      0xFFFF     /**< 16-bit: 0-65535 */
-#define MIDI2_RESOLUTION_32BIT      0xFFFFFFFF /**< 32-bit: 0-4294967295 */
-#define MIDI2_CENTER_16BIT          0x8000     /**< 16-bit center value */
-#define MIDI2_CENTER_32BIT          0x80000000 /**< 32-bit center value */
+#define UMP_UTILITY_NOOP            0x00  /**< No Operation */
+#define UMP_UTILITY_JR_CLOCK        0x01  /**< Jitter Reduction Clock */
+#define UMP_UTILITY_JR_TIMESTAMP    0x02  /**< Jitter Reduction Timestamp */
+#define UMP_UTILITY_DCTPQ           0x03  /**< Delta Clockstamp Ticks Per Quarter Note */
+#define UMP_UTILITY_DC_TICKS        0x04  /**< Delta Clockstamp */
 
 /** @} */
 
@@ -148,7 +104,6 @@
  * @defgroup MIDI2_NOTE_ATTRIBUTES MIDI 2.0 Note On/Off Attribute Types
  * @{
  */
-
 #define MIDI2_ATTR_NONE             0x00  /**< No attribute */
 #define MIDI2_ATTR_MANUFACTURER     0x01  /**< Manufacturer specific */
 #define MIDI2_ATTR_PROFILE          0x02  /**< Profile specific */

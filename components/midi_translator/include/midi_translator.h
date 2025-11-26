@@ -9,35 +9,10 @@
 #ifndef MIDI_TRANSLATOR_H
 #define MIDI_TRANSLATOR_H
 
-#include "midi_types.h"
-#include "ump_types.h"
 #include "esp_err.h"
 
-/**
- * @brief Translation Mode
- */
-typedef enum {
-    MIDI_TRANSLATE_DEFAULT,      /**< Default translation per spec Appendix D */
-    MIDI_TRANSLATE_MPE,          /**< MPE-aware translation */
-    MIDI_TRANSLATE_CUSTOM        /**< Custom translation (user-defined) */
-} midi_translate_mode_t;
-
-/**
- * @brief Translator Configuration
- */
-typedef struct {
-    midi_translate_mode_t mode;  /**< Translation mode */
-    uint8_t default_group;       /**< Default UMP group for MIDI 1.0 → 2.0 */
-    bool    preserve_timing;     /**< Preserve timing information */
-} midi_translator_config_t;
-
-/**
- * @brief Initialize translator with configuration
- * 
- * @param config Translator configuration
- * @return ESP_OK on success
- */
-esp_err_t midi_translator_init(const midi_translator_config_t *config);
+#include "midi_message.h"
+#include "ump_packet.h"
 
 /**
  * @brief Translate MIDI 1.0 message to UMP (MIDI 2.0)
@@ -75,6 +50,14 @@ esp_err_t midi_translate_2to1(const ump_packet_t *ump_in,
  */
 uint16_t midi_upscale_7to16(uint8_t value7);
 
+/**
+ * @brief Upscale 7-bit MIDI 1.0 value to 32-bit MIDI 2.0 value
+ * 
+ * Uses Min-Center-Max algorithm (spec Appendix D.3)
+ * 
+ * @param value_7 7-bit input value (0-127)
+ * @return 32-bit output value (0-4294967295)
+ */
 uint32_t midi_upscale_7to32(uint8_t value_7);
 
 /**
@@ -103,15 +86,46 @@ uint8_t midi_downscale_16to7(uint16_t value16);
  */
 uint16_t midi_downscale_32to14(uint32_t value32);
 
+/**
+ * @brief Build a MIDI 2.0 Note On UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param note Note number (0-127)
+ * @param velocity Velocity (16-bit)
+ * @param attr_type Attribute type
+ * @param attr_data Attribute data
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_note_on(uint8_t group, uint8_t channel, 
                                    uint8_t note, uint16_t velocity,
                                    uint8_t attr_type, uint16_t attr_data,
                                    ump_packet_t *packet);
 
+/**
+ * @brief Build a MIDI 2.0 Control Change UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param controller Controller number (0-127)
+ * @param value 32-bit controller value
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_control_change(uint8_t group, uint8_t channel,
                                           uint8_t controller, uint32_t value,
                                           ump_packet_t *packet);
 
+/**
+ * @brief Build a MIDI 2.0 Pitch Bend UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param value 32-bit pitch bend value
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_pitch_bend(uint8_t group, uint8_t channel,
                                       uint32_t value, ump_packet_t *packet);
                                 
@@ -120,15 +134,46 @@ esp_err_t ump_build_midi2_note_off(uint8_t group, uint8_t channel,
                                     uint8_t attr_type, uint16_t attr_data,
                                     ump_packet_t *packet);
 
+/**
+ * @brief Build a MIDI 2.0 Polyphonic Pressure UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param note Note number (0-127)
+ * @param pressure 32-bit pressure value
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_poly_pressure(uint8_t group, uint8_t channel,
                                          uint8_t note, uint32_t pressure,
                                          ump_packet_t *packet);
 
+/**
+ * @brief Build a MIDI 2.0 Program Change UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param program Program number (0-127)
+ * @param bank_valid Bank valid flag
+ * @param bank_msb Bank MSB (0-127)
+ * @param bank_lsb Bank LSB (0-127)
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_program_change(uint8_t group, uint8_t channel,
                                           uint8_t program, bool bank_valid,
                                           uint8_t bank_msb, uint8_t bank_lsb,
                                           ump_packet_t *packet);
 
+/**
+ * @brief Build a MIDI 2.0 Channel Pressure UMP packet
+ * 
+ * @param group UMP group (0-15)
+ * @param channel MIDI channel (0-15)
+ * @param pressure 32-bit pressure value
+ * @param packet Output UMP packet
+ * @return ESP_OK on success
+ */
 esp_err_t ump_build_midi2_channel_pressure(uint8_t group, uint8_t channel,
                                             uint32_t pressure,
                                             ump_packet_t *packet);

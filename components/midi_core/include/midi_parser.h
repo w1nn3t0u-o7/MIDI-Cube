@@ -11,15 +11,15 @@
 
 #include "esp_err.h"
 
-#include "midi_types.h"
 #include "midi_defs.h"
+#include "midi_message.h"
 
 /**
  * @brief MIDI Parser State Machine
  * 
  * Maintains parser state for handling running status and multi-byte messages
  */
-typedef struct {
+typedef struct midi_parser_state {
     /* Running Status Buffer */
     uint8_t running_status;        /**< Last channel voice/mode status byte */
     
@@ -36,11 +36,9 @@ typedef struct {
  * @brief Initialize MIDI parser state
  * 
  * @param state Pointer to parser state structure
- * @param sysex_buffer Optional buffer for SysEx data (NULL to disable SysEx)
- * @param sysex_buffer_size Size of SysEx buffer
  * @return ESP_OK on success, ESP_ERR_INVALID_ARG if state is NULL
  */
-esp_err_t midi_parser_init(midi_parser_state_t *state);
+esp_err_t midi1_parser_init(midi_parser_state_t *state);
 
 /**
  * @brief Reset parser state to initial conditions
@@ -50,7 +48,7 @@ esp_err_t midi_parser_init(midi_parser_state_t *state);
  * @param state Pointer to parser state
  * @return ESP_OK on success
  */
-esp_err_t midi_parser_reset(midi_parser_state_t *state);
+esp_err_t midi1_parser_reset(midi_parser_state_t *state);
 
 /**
  * @brief Parse a single MIDI byte
@@ -64,70 +62,8 @@ esp_err_t midi_parser_reset(midi_parser_state_t *state);
  * @param message_complete Set to true when a complete message is available
  * @return ESP_OK on success, error code on failure
  */
-esp_err_t midi_parser_parse_byte(midi_parser_state_t *state,
-                                 uint8_t byte,
-                                 midi_message_t *msg,
-                                 bool *message_complete);
-
-/**
- * @brief Get expected data byte count for a status byte
- * 
- * @param status MIDI status byte
- * @return Number of expected data bytes (0, 1, or 2)
- */
-uint8_t midi_get_data_byte_count(uint8_t status);
-
-/**
- * @brief Check if byte is a status byte
- * 
- * @param byte Byte to check
- * @return true if MSB is set (status byte)
- */
-static inline bool midi_is_status_byte(uint8_t byte) {
-    return (byte & MIDI_STATUS_BIT_MASK) != 0;
-}
-
-/**
- * @brief Check if byte is a data byte
- * 
- * @param byte Byte to check
- * @return true if MSB is clear (data byte)
- */
-static inline bool midi_is_data_byte(uint8_t byte) {
-    return (byte & MIDI_STATUS_BIT_MASK) == 0;
-}
-
-/**
- * @brief Check if status is a Real-Time message
- * 
- * @param status Status byte
- * @return true if Real-Time message (0xF8-0xFF)
- */
-static inline bool midi_is_realtime_message(uint8_t status) {
-    return status >= MIDI_STATUS_TIMING_CLOCK;
-}
-
-/**
- * @brief Check if status is a System Common message
- * 
- * @param status Status byte
- * @return true if System Common message (0xF0-0xF7)
- */
-static inline bool midi_is_system_common_message(uint8_t status) {
-    return (status >= MIDI_STATUS_SYSEX_START && 
-            status <= MIDI_STATUS_SYSEX_END);
-}
-
-/**
- * @brief Check if status is a Channel Voice/Mode message
- * 
- * @param status Status byte
- * @return true if Channel message (0x80-0xEF)
- */
-static inline bool midi_is_channel_message(uint8_t status) {
-    return (status >= MIDI_STATUS_NOTE_OFF && 
-            status < MIDI_STATUS_SYSEX_START);
-}
+esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
+                                 midi_message_t *msg, bool *message_complete);
 
 #endif /* MIDI_PARSER_H */
 

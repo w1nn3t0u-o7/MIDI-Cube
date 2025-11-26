@@ -14,12 +14,10 @@
 #ifndef MIDI_UART_H
 #define MIDI_UART_H
 
-//#include <stdint.h>
-//#include <stdbool.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "midi_types.h"
+
 #include "midi_parser.h"
 #include "sdkconfig.h"
 
@@ -54,33 +52,20 @@
  * Called when complete MIDI message received from UART
  * 
  * @param msg Parsed MIDI message
- * @param user_ctx User context pointer
  */
-typedef void (*midi_uart_rx_callback_t)(const midi_message_t *msg, void *user_ctx);
-
-/**
- * @brief MIDI UART configuration
- */
-// typedef struct {
-//     midi_uart_rx_callback_t rx_callback;  /**< RX callback function */
-//     void *rx_callback_ctx;                 /**< User context for callback */
-//     bool enable_tx;                        /**< Enable MIDI OUT (TX) */
-//     bool enable_rx;                        /**< Enable MIDI IN (RX) */
-// } midi_uart_config_t;
+typedef void (*midi_uart_rx_callback_t)(const midi_message_t *msg);
 
 /**
  * @brief MIDI UART driver state
  */
-typedef struct {
+typedef struct midi_uart_driver {
     bool is_initialized;
     
     // Parser state
     midi_parser_state_t parser;
-    uint8_t sysex_buffer[1024];  // SysEx buffer
     
     // Callback
     midi_uart_rx_callback_t rx_callback;
-    void *rx_callback_ctx;
     
     // FreeRTOS task
     TaskHandle_t rx_task_handle;

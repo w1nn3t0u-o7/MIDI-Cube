@@ -3,26 +3,21 @@
  * @brief MIDI Router Implementation
  */
 
+#include "esp_log.h"
+
 #include "midi_router.h"
 #include "midi_translator.h"
 #include "midi_uart.h"
 #include "midi_usb_device.h"
 #include "midi_network.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include <string.h>
 
 static const char *TAG = "midi_router";
 
 static midi_router_config_t router_state;
 extern midi_net_ep_t midi_server;  // From midi_network component
 
-// User callback that handles USB MIDI packets and sends to router queue
 void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
 {
-    
     // Create MIDI packet structure
     midi_router_packet_t packet = {
         .source = MIDI_TRANSPORT_USB,
@@ -42,10 +37,6 @@ void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
     }
 }
 
-/**
- * @brief Callback when UMP packet is received from network
- * This sends the packet to the MIDI router for processing
- */
 void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump)
 {
     // Create routing message
@@ -59,18 +50,13 @@ void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump)
     if (xQueueSend(router_state.packet_queue, &msg, 0) != pdTRUE) {
         ESP_LOGW(TAG, "Router queue full, dropped UMP packet");
     } else {
-        ESP_LOGI(TAG, "Sent UMP to router: type=0x%X", 
+        ESP_LOGD(TAG, "Sent UMP to router: type=0x%X", 
                 (ump->words[0] >> 28) & 0x0F);
     }
 }
 
-
-/**
- * @brief UART RX Callback
- * Called by UART driver when MIDI message received
- */
-void uart_rx_callback(const midi_message_t *msg, void *ctx) {
-    ESP_LOGI(TAG, "UART RX callback: Status=0x%02X", msg->status_byte);
+void uart_rx_callback(const midi_message_t *msg) {
+    ESP_LOGD(TAG, "UART RX callback: Status=0x%02X", msg->status_byte);
     if (!router_state.packet_queue) {
         ESP_LOGW(TAG, "Router input queue not initialized");
         return;
@@ -89,40 +75,6 @@ void uart_rx_callback(const midi_message_t *msg, void *ctx) {
     }
 }
 
-/**
- * @brief Translate packet if needed
- */
-static esp_err_t midi_router_translate(midi_router_packet_t *packet, 
-                                        bool dest_wants_ump) {
-    
-    bool src_is_midi1 = (packet->format == MIDI_FORMAT_1_0);
-    
-    if (src_is_midi1 && dest_wants_ump) {
-        // MIDI 1.0 → UMP
-        ump_packet_t ump;
-        esp_err_t err = midi_translate_1to2(&packet->data.midi1, &ump);
-        if (err == ESP_OK) {
-            packet->format = MIDI_FORMAT_2_0;
-            packet->data.ump = ump;
-        }
-        return err;
-    } else if (!src_is_midi1 && !dest_wants_ump) {
-        // UMP → MIDI 1.0
-        midi_message_t midi1;
-        esp_err_t err = midi_translate_2to1(&packet->data.ump, &midi1);
-        if (err == ESP_OK) {
-            packet->format = MIDI_FORMAT_1_0;
-            packet->data.midi1 = midi1;
-        }
-        return err;
-    }
-    
-    return ESP_OK;  // No translation needed
-}
-
-/**
- * @brief Router task - processes incoming packets
- */
 static void midi_router_task(void *arg) 
 {
     midi_router_packet_t packet;
@@ -148,7 +100,7 @@ static void midi_router_task(void *arg)
             case MIDI_TRANSPORT_UART: {
                 ESP_LOGD(TAG, "UART→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
                          packet.data.midi1.status_byte, 
-                         MIDI_MSG_GET_CHANNEL(&packet.data.midi1),
+                         MIDI1_MSG_GET_CHANNEL(&packet.data.midi1),
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
@@ -197,7 +149,7 @@ static void midi_router_task(void *arg)
             case MIDI_TRANSPORT_USB: {
                 ESP_LOGD(TAG, "USB→Router: Status=0x%02X Ch=%d Data=[0x%02X 0x%02X]", 
                          packet.data.midi1.status_byte,
-                         MIDI_MSG_GET_CHANNEL(&packet.data.midi1),
+                         MIDI1_MSG_GET_CHANNEL(&packet.data.midi1),
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
@@ -235,7 +187,7 @@ static void midi_router_task(void *arg)
             // Network MIDI Input (UMP/MIDI 2.0) - Route to UART and USB
             // ============================================================
             case MIDI_TRANSPORT_NETWORK: {
-                uint8_t mt = (packet.data.ump.words[0] >> 28) & 0x0F;
+                uint8_t mt = UMP_GET_MT(packet.data.ump);
                 ESP_LOGD(TAG, "Network→Router: MT=0x%X Word0=0x%08lX Word1=0x%08lX", 
                          mt, packet.data.ump.words[0], packet.data.ump.words[1]);
                 
@@ -280,11 +232,8 @@ static void midi_router_task(void *arg)
     }
 }
 
-
-/**
- * @brief Initialize router
- */
-esp_err_t midi_router_init(void) {
+esp_err_t midi_router_init(void)
+{
     if (router_state.initialized) {
         ESP_LOGW(TAG, "Router already initialized");
         return ESP_ERR_INVALID_STATE;
@@ -330,7 +279,3 @@ esp_err_t midi_router_init(void) {
     
     return ESP_OK;
 }
-
-// ... (additional functions: set_route, get_route, save_config, etc.)
-// [Implementation continues with NVS operations, config management]
-

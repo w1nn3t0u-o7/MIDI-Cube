@@ -11,7 +11,7 @@ static const char *TAG = "midi_net";
 
 midi_net_ep_t midi_server;
 
-// ============ Helper Functions ============
+// ============ Helper Functions ============ //
 
 static inline const char *midi_net_ep_get_name(const midi_net_ep_t *ep)
 {

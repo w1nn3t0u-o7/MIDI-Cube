@@ -8,10 +8,21 @@
 #define MIDI_WIFI_SSID      CONFIG_MIDI_WIFI_SSID
 #define MIDI_WIFI_PASS      CONFIG_MIDI_WIFI_PASSWORD
 
+/**
+ * @brief WiFi connection callback type
+ * 
+ * @param netif Network interface
+ * @param ip_addr Assigned IP address as string
+ */
 typedef void (*wifi_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
+
+
+/**
+ * @brief WiFi disconnection callback type
+ */
 typedef void (*wifi_disconnected_cb_t)(void);
 
-typedef struct {
+typedef struct midi_wifi_config {
     EventGroupHandle_t wifi_event_group;
     esp_netif_t *wifi_netif;
     wifi_connected_cb_t connected_cb;
