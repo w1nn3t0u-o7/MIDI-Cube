@@ -206,12 +206,7 @@ esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg,
         return ESP_ERR_INVALID_ARG;
     }
     
-    uint8_t status_type = MIDI1_MSG_GET_STATUS(msg);
-    
-    // System messages use Message Type 0x1 (32-bit / 4-byte UMP)
-    //packet->num_words = 1;
-    
-    switch (status_type) {
+    switch (msg->status_byte) {
         // System Common Messages (0xF1 - 0xF7)
         
         case MIDI1_STATUS_MTC_QUARTER_FRAME: // MIDI Time Code
@@ -295,7 +290,7 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
     uint8_t status_type = MIDI1_MSG_GET_STATUS(msg);
     uint8_t channel = MIDI1_MSG_GET_CHANNEL(msg);
     
-    if (status_type >= 0xF0) {
+    if (msg->status_byte >= 0xF0) {
         return midi_translate_system_messages_1to2(msg, packet);
     }
 

@@ -190,8 +190,8 @@ esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
         }
     }
     // System Messages (0xF0 - 0xFF)
-    else if (status_type >= 0xF0) {
-        switch (status_type) {
+    else if (msg->status_byte >= 0xF0) {
+        switch (msg->status_byte) {
             case MIDI1_STATUS_SYSEX_START: // SysEx Start (handled separately)
             case MIDI1_STATUS_SYSEX_END: // SysEx End (handled separately)
                 return ESP_ERR_NOT_SUPPORTED; // Use separate SysEx function
