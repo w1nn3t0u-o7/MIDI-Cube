@@ -60,11 +60,4 @@ menu "MIDI UART Configuration"
             FreeRTOS task priority. Higher = more CPU time.
             10 = High priority (audio/MIDI level)
 
-    config MIDI_UART_USE_OPTOCOUPLER
-        bool "Hardware uses optocoupler on RX"
-        default y
-        help
-            Enable if your MIDI IN circuit uses 6N138/6N137 optocoupler.
-            Affects timing characteristics slightly.
-
 endmenu
