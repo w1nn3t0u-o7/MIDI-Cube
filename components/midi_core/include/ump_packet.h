@@ -17,7 +17,7 @@
  * A UMP can be 32, 64, 96, or 128 bits (1-4 words)
  */
 typedef struct {
-    uint32_t words[UMP_MAX_WORDS];  /**< Up to 4 32-bit words */
+    uint32_t words[4];  /**< Up to 4 32-bit words */
 } ump_packet_t;
 
 #endif /* UMP_PACKET_H */

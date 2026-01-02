@@ -11,8 +11,6 @@
 
 #include <stdint.h>
 
-#define UMP_MAX_WORDS               4     /**< Maximum words in a UMP */
-
 /**
  * @defgroup UMP_MACROS UMP Helper Macros
  * @brief Macros for extracting UMP fields
