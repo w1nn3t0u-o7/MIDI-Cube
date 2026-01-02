@@ -7,7 +7,7 @@ The project seamlessly routes and translates MIDI messages between:
 - **UART** (Classic DIN-5 MIDI 1.0)
 - **Network** (MIDI 2.0 UMP over UDP via WiFi or Ethernet)
 
-## 🚀 Features
+## Features
 
 - **USB MIDI:** Acts as a standard USB MIDI Class compliant device.
 - **Serial MIDI:** Classic 31.250 baud MIDI over UART.
@@ -16,13 +16,13 @@ The project seamlessly routes and translates MIDI messages between:
 - **WiFi:** Wireless MIDI support for portable setups.
 - **Bi-directional Translation:** Automatically converts between MIDI 1.0 byte streams and MIDI 2.0 UMP packets.
 
-## 🛠️ Hardware Requirements
+## Hardware Requirements
 
 - **MCU:** Espressif ESP32-S3
-- **Ethernet:** WIZnet W5500 (SPI Interface)
+- **Ethernet:** WIZnet W5500
 
 
-## ⚙️ Configuration
+## Configuration
 
 Use the ESP-IDF configuration menu to set up your environment:
 
@@ -52,7 +52,7 @@ idf.py menuconfig
 
 
 
-## 🏗️ Build and Flash
+## Build and Flash
 
 This project requires **ESP-IDF v6.0.0**.
 
