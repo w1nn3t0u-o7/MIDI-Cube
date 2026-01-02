@@ -89,7 +89,3 @@ idf.py monitor
 * Add authentication to MIDI 2.0 sessions.
 * IPv6 support.
 * Forward Error Correction (FEC).
-
-
-```
- 
