@@ -21,7 +21,6 @@ The project seamlessly routes and translates MIDI messages between:
 - **MCU:** Espressif ESP32-S3
 - **Ethernet:** WIZnet W5500 (SPI Interface)
 
-```
 
 ## ⚙️ Configuration
 
@@ -77,7 +76,7 @@ idf.py monitor
 
 ```
 
-## ✅ TODO / Roadmap
+## TODO
 
 * [ ] **Code Style:** Refactor and standardize code style.
 * [ ] **Latency:** Optimization for critical paths.
