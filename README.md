@@ -9,41 +9,17 @@ The project seamlessly routes and translates MIDI messages between:
 
 ## 🚀 Features
 
-- **Multi-Transport Support:**
-  - **USB MIDI:** Acts as a standard USB MIDI Class compliant device.
-  - **Serial MIDI:** Classic 31.250 baud MIDI over UART (configurable pins).
-  - **Network MIDI 2.0:** UMP (Universal MIDI Packet) transport over UDP with session management and mDNS discovery (`_midi2._udp`).
-  - **Ethernet:** Low-latency wired connection support using W5500 (SPI).
-  - **WiFi:** Wireless MIDI support for portable setups.
-
-- **Intelligent Routing & Translation:**
-  - **Centralized Router:** Handles message passing between all active interfaces using FreeRTOS queues.
-  - **Bi-directional Translation:** Automatically converts between MIDI 1.0 byte streams and MIDI 2.0 UMP packets.
-  - **High-Resolution Scaling:** Implements MIDI 2.0 Min-Center-Max algorithms for accurate upscaling of 7-bit values to 16/32-bit resolution.
-
-- **Configurable:**
-  - Full configuration via Kconfig (WiFi credentials, Pin mapping, IP settings).
+- **USB MIDI:** Acts as a standard USB MIDI Class compliant device.
+- **Serial MIDI:** Classic 31.250 baud MIDI over UART.
+- **Network MIDI 2.0:** UMP (Universal MIDI Packet) transport over UDP with session management and mDNS discovery (`_midi2._udp`).
+- **Ethernet:** Low-latency wired connection support using W5500.
+- **WiFi:** Wireless MIDI support for portable setups.
+- **Bi-directional Translation:** Automatically converts between MIDI 1.0 byte streams and MIDI 2.0 UMP packets.
 
 ## 🛠️ Hardware Requirements
 
 - **MCU:** Espressif ESP32-S3
 - **Ethernet:** WIZnet W5500 (SPI Interface)
-
-## 📂 Project Structure
-
-The project is structured as an ESP-IDF component-based application:
-
-```text
-├── main/                   # Application entry point
-├── components/
-│   ├── midi_core/          # Parsers, message definitions, and UMP handling
-│   ├── midi_router/        # Routing logic and queues
-│   ├── midi_translator/    # MIDI 1.0 <-> MIDI 2.0 translation logic
-│   ├── midi_uart/          # UART driver for DIN MIDI
-│   ├── midi_usb_device/    # TinyUSB wrapper
-│   ├── midi_network/       # UDP transport and session management
-│   ├── midi_wifi/          # WiFi station manager
-│   └── midi_ethernet/      # W5500 Ethernet driver
 
 ```
 
@@ -63,7 +39,7 @@ idf.py menuconfig
 
 
 2. **MIDI Ethernet Configuration:**
-* Choose between `DHCP` (Router) or `Static IP` (Direct PC connection).
+* Choose between `DHCP` or `Static IP`.
 
 
 3. **MIDI UART Configuration:**
@@ -101,27 +77,13 @@ idf.py monitor
 
 ```
 
-
-
-## 🔌 Interfacing
-
-### Network Discovery
-
-The device advertises itself via mDNS as `midi-cube._midi2._udp.local`. You can discover it using MIDI 2.0 capable software or tools that support Network MIDI discovery.
-
-### USB
-
-Connect the ESP32-S3 USB port to your computer. It will appear as "MIDI Cube - USB MIDI Device".
-
 ## ✅ TODO / Roadmap
 
 * [ ] **Code Style:** Refactor and standardize code style.
-* [ ] **PCB Design:** Create a dedicated PCB layout.
 * [ ] **Latency:** Optimization for critical paths.
 * [ ] **MIDI Core:**
 * Add Active Sensing support.
 * Robust System Exclusive (SysEx) support.
-
 
 * [ ] **MIDI UART:** Hardware optocoupler integration for noise elimination.
 * [ ] **Network:**
