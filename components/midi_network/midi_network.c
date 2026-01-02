@@ -54,7 +54,7 @@ static int midi_net_quick_reply(
     // Check if payload will fit
     size_t packet_size = 8 + (payload_len_words * 4);
     if (packet_size > sizeof(buf)) {
-        ESP_LOGE("midi_net", "Payload too large: %d words", payload_len_words);
+        ESP_LOGE(TAG, "Payload too large: %d words", payload_len_words);
         return -1;
     }
     
@@ -85,12 +85,12 @@ static int midi_net_quick_reply(
                      (struct sockaddr *)peer_addr, sizeof(*peer_addr));
     
     if (sent < 0) {
-        ESP_LOGE("midi_net", "Failed to send command 0x%02X: %d", 
+        ESP_LOGE(TAG, "Failed to send command 0x%02X: %d", 
                 command_code, errno);
         return -1;
     }
-    
-    ESP_LOGD("midi_net", "Sent command 0x%02X (%d bytes) to %s:%d",
+
+    ESP_LOGD(TAG, "Sent command 0x%02X (%d bytes) to %s:%d",
             command_code, sent, inet_ntoa(peer_addr->sin_addr), 
             ntohs(peer_addr->sin_port));
     
@@ -133,7 +133,7 @@ static inline midi_net_session_t *midi_net_match_session(midi_net_ep_t *ep,
 	for (size_t i = 0; i < CONFIG_MIDI_NET_MAX_SESSIONS; i++) {
 		if (ep->sessions[i].peer_addr_len == peer_addr_len &&
 		    memcmp(&ep->sessions[i].peer_addr, peer_addr, peer_addr_len) == 0) {
-			ESP_LOGI("midi_net", "Found matching client session %d", i);
+			ESP_LOGI(TAG, "Found matching client session %d", i);
 			return &ep->sessions[i];
 		}
 	}
@@ -183,7 +183,7 @@ static inline midi_net_session_t *midi_net_try_alloc_session(midi_net_ep_t *ep,
 			sess->peer_addr_len = peer_addr_len;
 			sess->ep = ep;
 			memcpy(&sess->peer_addr, peer_addr, peer_addr_len);
-			ESP_LOGI("midi_net", "new client session (%d)", i);
+			ESP_LOGI(TAG, "new client session (%d)", i);
 			return sess;
 		}
 	}
@@ -203,7 +203,7 @@ static inline midi_net_session_t *midi_net_alloc_session(midi_net_ep_t *ep,
 	}
 
 	if (session == NULL) {
-		ESP_LOGE("midi_net", "No available client session");
+		ESP_LOGE(TAG, "No available client session");
 	}
 
 	return session;
@@ -399,7 +399,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
         if (offset + 4 + payload_size > len) {
             midi_net_quick_nak(ep, peer_addr, peer_addr_len,
 				   NAK_CMD_MALFORMED, cmd_header);
-            ESP_LOGE("midi_net", "Incomplete UDP MIDI command packet payload");
+            ESP_LOGE(TAG, "Incomplete UDP MIDI command packet payload");
             break;
         }
         
@@ -442,14 +442,14 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
             if (!SESSION_HAS_STATE(session, MIDI_NET_SESSION_ESTABLISHED)) {
                 midi_net_quick_nak(ep, peer_addr, peer_addr_len,
                         NAK_CMD_NOT_EXPECTED, cmd_header);
-                ESP_LOGW("midi_net", "Receiving UMP data without established session");
+                ESP_LOGW(TAG, "Receiving UMP data without established session");
                 break;
             }
 
             if (session->rx_ump_seq == cmd_data) {
                 session->rx_ump_seq++;
             } else {
-                ESP_LOGW("midi_net", "UMP Rx sequence mismatch (got %d, expected %d)",
+                ESP_LOGW(TAG, "UMP Rx sequence mismatch (got %d, expected %d)",
                         cmd_data, session->rx_ump_seq);
                 session->rx_ump_seq = 1 + cmd_data;
             }
@@ -457,7 +457,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
             if (payload_words < 1 || payload_words > 4) {
                 midi_net_quick_nak(ep, peer_addr, peer_addr_len,
                         NAK_CMD_MALFORMED, cmd_header);
-                ESP_LOGE("midi_net", "Invalid UMP length");
+                ESP_LOGE(TAG, "Invalid UMP length");
                 break;
             }
 
@@ -477,7 +477,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
             if (UMP_GET_NUM_WORDS(ump) != payload_words) {
                 midi_net_quick_nak(ep, peer_addr, peer_addr_len,
                         NAK_CMD_MALFORMED, cmd_header);
-                ESP_LOGE("midi_net", "Invalid UMP payload size for its message type");
+                ESP_LOGE(TAG, "Invalid UMP payload size for its message type");
                 break;
             }
 
@@ -494,7 +494,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
 		    if (session == NULL) {
 			    midi_net_quick_nak(ep, peer_addr, peer_addr_len,
 					                NAK_CMD_NOT_EXPECTED, cmd_header);
-			    ESP_LOGW("midi_net", "Receiving BYE without session");
+			    ESP_LOGW(TAG, "Receiving BYE without session");
 			    break;
 		    }
 		    //net_buf_pull(rx, payload_len);
@@ -505,7 +505,7 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
         case MIDI_NET_CMD_SESSION_RESET: {
             session = midi_net_match_session(ep, peer_addr, peer_addr_len);
             if (!SESSION_HAS_STATE(session, MIDI_NET_SESSION_ESTABLISHED)) {
-                ESP_LOGW("midi_net", "Receiving session reset without established session");
+                ESP_LOGW(TAG, "Receiving session reset without established session");
                 midi_net_quick_nak(ep, peer_addr, peer_addr_len,
                         NAK_CMD_NOT_EXPECTED, cmd_header);
                 break;

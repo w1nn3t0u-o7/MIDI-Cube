@@ -104,15 +104,6 @@ static void midi_router_task(void *arg)
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
-                // Option 1: Loop back to UART TX (echo)
-                // if (router_state.uart_loopback) {
-                //     ret = midi_uart_send_message(&packet.data.midi1);
-                //     if (ret != ESP_OK) {
-                //         ESP_LOGW(TAG, "Failed to send UART echo: %s", 
-                //                  esp_err_to_name(ret));
-                //     }
-                // }
-                
                 // Option 2: Send to USB (MIDI 1.0 format)
                 if (router_state.enable_usb) {
                     ret = midi_usbd_send(packet.cable, &packet.data.midi1);

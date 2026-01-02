@@ -15,7 +15,7 @@
 #include "sdkconfig.h"
 
 #include "midi_ethernet.h"
-static const char *TAG = "ethernet_basic";
+static const char *TAG = "midi_eth";
 
 /* Event handler for IP_EVENT_ETH_GOT_IP */
 static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
