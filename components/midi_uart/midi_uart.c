@@ -84,7 +84,7 @@ static void midi_uart_rx_task(void *arg)
 {
     midi_uart_driver_t *driver = (midi_uart_driver_t *)arg;
     uint8_t rx_byte;
-    midi_message_t msg;
+    midi1_message_t msg;
     bool complete;
     uart_event_t event;
     QueueHandle_t uart_queue = driver->uart_event_queue;
@@ -250,7 +250,7 @@ esp_err_t midi_uart_deinit(void)
     return ESP_OK;
 }
 
-esp_err_t midi_uart_send_message(const midi_message_t *msg)
+esp_err_t midi_uart_send_message(const midi1_message_t *msg)
 {
     if (!uart_driver.is_initialized) {
         return ESP_ERR_INVALID_STATE;

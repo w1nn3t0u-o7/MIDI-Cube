@@ -199,7 +199,7 @@ esp_err_t ump_build_midi2_channel_pressure(uint8_t group, uint8_t channel,
     return ESP_OK;
 }
 
-esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg, 
+esp_err_t midi_translate_system_messages_1to2(const midi1_message_t *msg, 
                                                 ump_packet_t *packet)
 {
     if (!msg || !packet) {
@@ -281,7 +281,7 @@ esp_err_t midi_translate_system_messages_1to2(const midi_message_t *msg,
     return ESP_OK;
 }
 
-esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet) 
+esp_err_t midi_translate_1to2(const midi1_message_t *msg, ump_packet_t *packet) 
 {
     if (!msg || !packet) {
         return ESP_ERR_INVALID_ARG;
@@ -385,7 +385,7 @@ esp_err_t midi_translate_1to2(const midi_message_t *msg, ump_packet_t *packet)
     }
 }
 
-esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi_message_t *msg)
+esp_err_t midi_translate_2to1(const ump_packet_t *packet, midi1_message_t *msg)
 {
     if (!packet || !msg) {
         return ESP_ERR_INVALID_ARG;

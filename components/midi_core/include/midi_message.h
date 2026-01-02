@@ -15,10 +15,10 @@
  * 
  * Represents a complete, parsed MIDI message 
  */
-typedef struct midi_message {
+typedef struct midi1_message {
     uint8_t status_byte;          /**< Full status byte (including channel) */
     uint8_t data[2];              /**< Up to 2 data bytes */
-} midi_message_t;
+} midi1_message_t;
 
 /**
  * @brief Get expected data byte count for a status byte
@@ -99,7 +99,7 @@ static inline bool midi1_is_channel_message(uint8_t status) {
  * @param bytes_written Number of bytes written to buffer
  * @return ESP_OK on success
  */
-esp_err_t midi1_message_to_bytes(const midi_message_t *msg, uint8_t *buffer,
+esp_err_t midi1_message_to_bytes(const midi1_message_t *msg, uint8_t *buffer,
                                 size_t buffer_size, size_t *bytes_written);
 
 #endif /* MIDI_MESSAGE_H */

@@ -23,7 +23,7 @@ typedef enum {
 } midi_usbd_ep_t;
 
 // Callback types
-typedef void (*midi_usbd_rx_cb_t)(uint8_t cable, uint8_t cin, midi_message_t *msg);
+typedef void (*midi_usbd_rx_cb_t)(uint8_t cable, uint8_t cin, midi1_message_t *msg);
 
 // Configuration structure
 typedef struct {
@@ -48,7 +48,7 @@ esp_err_t midi_usbd_register_rx_callback(midi_usbd_rx_cb_t callback);
  * @param msg Pointer to MIDI message structure
  * @return ESP_OK on success, error code otherwise
  */
-esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg);
+esp_err_t midi_usbd_send(uint8_t cable, const midi1_message_t *msg);
 bool midi_usbd_is_mounted(void);
 
 #endif // USB_MIDI_DEVICE_H

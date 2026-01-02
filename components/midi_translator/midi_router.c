@@ -16,7 +16,7 @@ static const char *TAG = "midi_router";
 static midi_router_config_t router_state;
 extern midi_net_ep_t midi_server;  // From midi_network component
 
-void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg)
+void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi1_message_t *msg)
 {
     // Create MIDI packet structure
     midi_router_packet_t packet = {
@@ -55,7 +55,7 @@ void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump)
     }
 }
 
-void uart_rx_callback(const midi_message_t *msg) {
+void uart_rx_callback(const midi1_message_t *msg) {
     ESP_LOGD(TAG, "UART RX callback: Status=0x%02X", msg->status_byte);
     if (!router_state.packet_queue) {
         ESP_LOGW(TAG, "Router input queue not initialized");
@@ -78,7 +78,7 @@ void uart_rx_callback(const midi_message_t *msg) {
 static void midi_router_task(void *arg) 
 {
     midi_router_packet_t packet;
-    midi_message_t translated_msg;
+    midi1_message_t translated_msg;
     ump_packet_t translated_ump;
     esp_err_t ret;
     

@@ -15,20 +15,20 @@
 
 static const char *TAG = "midi_parser";
 
-esp_err_t midi1_parser_init(midi_parser_state_t *state)
+esp_err_t midi1_parser_init(midi1_parser_state_t *state)
 {
     if (!state) {
         return ESP_ERR_INVALID_ARG;
     }
     
-    memset(state, 0, sizeof(midi_parser_state_t));
+    memset(state, 0, sizeof(midi1_parser_state_t));
     
     ESP_LOGD(TAG, "MIDI parser initialized");
     
     return ESP_OK;
 }
 
-esp_err_t midi1_parser_reset(midi_parser_state_t *state)
+esp_err_t midi1_parser_reset(midi1_parser_state_t *state)
 {
     if (!state) {
         return ESP_ERR_INVALID_ARG;
@@ -44,8 +44,8 @@ esp_err_t midi1_parser_reset(midi_parser_state_t *state)
     return ESP_OK;
 }
 
-esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
-                                 midi_message_t *msg, bool *message_complete)
+esp_err_t midi1_parser_parse_byte(midi1_parser_state_t *state, uint8_t byte,
+                                 midi1_message_t *msg, bool *message_complete)
 {
     if (!state || !msg || !message_complete) {
         return ESP_ERR_INVALID_ARG;
@@ -59,7 +59,7 @@ esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
      * affecting running status or current message assembly. 
      * Spec: Page 30, "System Real Time Messages" */
     if (midi1_is_realtime_message(byte)) {
-        memset(msg, 0, sizeof(midi_message_t));
+        memset(msg, 0, sizeof(midi1_message_t));
         
         msg->status_byte = byte;
         *message_complete = true;
@@ -85,7 +85,7 @@ esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
                 state->in_sysex = false;
                 
                 /* Create SysEx message */
-                memset(msg, 0, sizeof(midi_message_t));
+                memset(msg, 0, sizeof(midi1_message_t));
                 msg->status_byte = MIDI1_STATUS_SYSEX_START;
                 
                 *message_complete = true;
@@ -103,7 +103,7 @@ esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
             state->data_index = 0;
             state->expected_data_bytes = midi1_get_data_byte_count(byte);
             
-            memset(msg, 0, sizeof(midi_message_t));
+            memset(msg, 0, sizeof(midi1_message_t));
             msg->status_byte = byte;
             
             /* Single-byte System Common messages */
@@ -154,7 +154,7 @@ esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
         /* Check if message is complete */
         if (state->data_index >= state->expected_data_bytes) {
             
-            memset(msg, 0, sizeof(midi_message_t));
+            memset(msg, 0, sizeof(midi1_message_t));
             /* Message complete - fill in structure */
             msg->status_byte = state->running_status;
             msg->data[0] = (state->expected_data_bytes >= 1) ? state->data_bytes[0] : 0;

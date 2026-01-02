@@ -24,7 +24,7 @@
  * @param ump_out Output UMP packet
  * @return ESP_OK on success, ESP_ERR_NOT_SUPPORTED if message cannot be translated
  */
-esp_err_t midi_translate_1to2(const midi_message_t *midi1_msg, 
+esp_err_t midi_translate_1to2(const midi1_message_t *midi1_msg, 
                                ump_packet_t *ump_out);
 
 /**
@@ -38,7 +38,7 @@ esp_err_t midi_translate_1to2(const midi_message_t *midi1_msg,
  * @return ESP_OK on success, ESP_ERR_NOT_SUPPORTED if message cannot be translated
  */
 esp_err_t midi_translate_2to1(const ump_packet_t *ump_in,
-                               midi_message_t *midi1_msg);
+                               midi1_message_t *midi1_msg);
 
 /**
  * @brief Upscale 7-bit MIDI 1.0 value to 16-bit MIDI 2.0 value

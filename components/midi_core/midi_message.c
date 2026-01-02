@@ -52,7 +52,7 @@ uint8_t midi1_get_message_length(uint8_t status)
     return midi1_get_data_byte_count(status) + 1;  // +1 for status byte
 }
 
-esp_err_t midi1_message_to_bytes(const midi_message_t *msg, uint8_t *buffer,
+esp_err_t midi1_message_to_bytes(const midi1_message_t *msg, uint8_t *buffer,
                                 size_t buffer_size, size_t *bytes_written)
 {
     if (!msg || !buffer || !bytes_written) {

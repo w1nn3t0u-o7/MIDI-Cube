@@ -37,7 +37,7 @@ static uint8_t *s_midi_hs_cfg_desc = NULL;
 static void midi_rx_task(void *arg)
 {
     uint8_t packet[4];
-    midi_message_t msg;
+    midi1_message_t msg;
     uint8_t cable;
     uint8_t cin;
     
@@ -148,7 +148,7 @@ esp_err_t midi_usbd_register_rx_callback(midi_usbd_rx_cb_t callback)
     return ESP_OK;
 }
 
-esp_err_t midi_usbd_send(uint8_t cable, const midi_message_t *msg)
+esp_err_t midi_usbd_send(uint8_t cable, const midi1_message_t *msg)
 {
     if (!msg) {
         return ESP_ERR_INVALID_ARG;

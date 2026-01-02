@@ -19,7 +19,7 @@
  * 
  * Maintains parser state for handling running status and multi-byte messages
  */
-typedef struct midi_parser_state {
+typedef struct midi1_parser_state {
     /* Running Status Buffer */
     uint8_t running_status;        /**< Last channel voice/mode status byte */
     
@@ -30,7 +30,7 @@ typedef struct midi_parser_state {
     
     /* System Exclusive handling */
     bool in_sysex;                 /**< Currently receiving SysEx */
-} midi_parser_state_t;
+} midi1_parser_state_t;
 
 /**
  * @brief Initialize MIDI parser state
@@ -38,7 +38,7 @@ typedef struct midi_parser_state {
  * @param state Pointer to parser state structure
  * @return ESP_OK on success, ESP_ERR_INVALID_ARG if state is NULL
  */
-esp_err_t midi1_parser_init(midi_parser_state_t *state);
+esp_err_t midi1_parser_init(midi1_parser_state_t *state);
 
 /**
  * @brief Reset parser state to initial conditions
@@ -48,7 +48,7 @@ esp_err_t midi1_parser_init(midi_parser_state_t *state);
  * @param state Pointer to parser state
  * @return ESP_OK on success
  */
-esp_err_t midi1_parser_reset(midi_parser_state_t *state);
+esp_err_t midi1_parser_reset(midi1_parser_state_t *state);
 
 /**
  * @brief Parse a single MIDI byte
@@ -62,8 +62,8 @@ esp_err_t midi1_parser_reset(midi_parser_state_t *state);
  * @param message_complete Set to true when a complete message is available
  * @return ESP_OK on success, error code on failure
  */
-esp_err_t midi1_parser_parse_byte(midi_parser_state_t *state, uint8_t byte,
-                                 midi_message_t *msg, bool *message_complete);
+esp_err_t midi1_parser_parse_byte(midi1_parser_state_t *state, uint8_t byte,
+                                 midi1_message_t *msg, bool *message_complete);
 
 #endif /* MIDI_PARSER_H */
 

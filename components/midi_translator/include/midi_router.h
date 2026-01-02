@@ -79,7 +79,7 @@ typedef struct midi_router_packet {
     uint8_t cin;                  /**< Code Index Number (for MIDI 1.0) */
     
     union {
-        midi_message_t midi1;     /**< MIDI 1.0 message */
+        midi1_message_t midi1;     /**< MIDI 1.0 message */
         ump_packet_t ump;         /**< UMP packet */
     } data;
 } midi_router_packet_t;
@@ -89,7 +89,7 @@ typedef struct midi_router_packet {
  * 
  * @param msg Parsed MIDI message
  */
-void uart_rx_callback(const midi_message_t *msg);
+void uart_rx_callback(const midi1_message_t *msg);
 
 /**
  * @brief Callback when UMP packet is received from network
@@ -107,7 +107,7 @@ void midi_net_rx_callback(midi_net_session_t *session, const ump_packet_t *ump);
  * @param cin Code Index Number
  * @param msg Parsed MIDI message
  */
-void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi_message_t *msg);
+void midi_usbd_rx_callback(uint8_t cable, uint8_t cin, midi1_message_t *msg);
 
 /**
  * @brief Initialize MIDI router

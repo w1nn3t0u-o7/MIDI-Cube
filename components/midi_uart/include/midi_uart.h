@@ -53,7 +53,7 @@
  * 
  * @param msg Parsed MIDI message
  */
-typedef void (*midi_uart_rx_callback_t)(const midi_message_t *msg);
+typedef void (*midi_uart_rx_callback_t)(const midi1_message_t *msg);
 
 /**
  * @brief MIDI UART driver state
@@ -62,7 +62,7 @@ typedef struct midi_uart_driver {
     bool is_initialized;
     
     // Parser state
-    midi_parser_state_t parser;
+    midi1_parser_state_t parser;
     
     // Callback
     midi_uart_rx_callback_t rx_callback;
@@ -124,7 +124,7 @@ esp_err_t midi_uart_deinit(void);
  * @param msg MIDI message to send
  * @return ESP_OK on success, ESP_ERR_TIMEOUT if TX buffer full
  */
-esp_err_t midi_uart_send_message(const midi_message_t *msg);
+esp_err_t midi_uart_send_message(const midi1_message_t *msg);
 
 /**
  * @brief Send raw MIDI bytes over UART
