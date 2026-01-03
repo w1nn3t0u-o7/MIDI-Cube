@@ -31,6 +31,13 @@
 typedef void (*eth_connected_cb_t)(esp_netif_t *netif, const char *ip_addr);
 typedef void (*eth_disconnected_cb_t)(void);
 
+typedef struct midi_eth_config {
+    esp_netif_t *eth_netif;
+    eth_connected_cb_t connected_cb;
+    eth_disconnected_cb_t disconnected_cb;
+    bool is_connected;
+} midi_eth_config_t;
+
 void midi_eth_register_callbacks(eth_connected_cb_t connected_cb,
                                           eth_disconnected_cb_t disconnected_cb);
 

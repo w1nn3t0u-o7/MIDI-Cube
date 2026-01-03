@@ -17,6 +17,10 @@
 #include "midi_ethernet.h"
 static const char *TAG = "midi_eth";
 
+static midi_eth_config_t midi_eth_config = {
+    .is_connected = false,
+};
+
 /* Event handler for IP_EVENT_ETH_GOT_IP */
 static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
                                  int32_t event_id, void *event_data)
@@ -35,12 +39,21 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "Ethernet running in STATIC IP mode (direct connection)");
 #else
     ESP_LOGI(TAG, "Ethernet running in DHCP mode (router connection)");
-    
-#ifdef CONFIG_MIDI_ETH_DISABLE_WIFI_ON_DHCP
-    // TODO: Add logic to check if WiFi is on same subnet and disable it
-    ESP_LOGI(TAG, "Checking for WiFi/Ethernet subnet conflict...");
 #endif
-#endif
+    midi_eth_config.is_connected = true;
+
+    if (midi_eth_config.connected_cb) {
+        char ip_str[16];
+        esp_ip4addr_ntoa(&ip_info->ip, ip_str, sizeof(ip_str));
+        midi_eth_config.connected_cb(midi_eth_config.eth_netif, ip_str);
+    }
+}
+
+void midi_eth_register_callbacks(eth_connected_cb_t connected_cb,
+                                          eth_disconnected_cb_t disconnected_cb)
+{
+    midi_eth_config.connected_cb = connected_cb;
+    midi_eth_config.disconnected_cb = disconnected_cb;
 }
 
 esp_err_t midi_eth_init(void)
@@ -73,16 +86,16 @@ esp_err_t midi_eth_init(void)
         // Use ESP_NETIF_DEFAULT_ETH when just one Ethernet interface is used and you don't need to modify
         // default esp-netif configuration parameters.
         esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
-        esp_netif_t *eth_netif = esp_netif_new(&cfg);
+        midi_eth_config.eth_netif = esp_netif_new(&cfg);
         // Attach Ethernet driver to TCP/IP stack
-        ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handles[0])));
+        ESP_ERROR_CHECK(esp_netif_attach(midi_eth_config.eth_netif, esp_eth_new_netif_glue(eth_handles[0])));
 
 #ifdef CONFIG_MIDI_ETH_IP_STATIC
         // Configure STATIC IP
         ESP_LOGI(TAG, "Configuring static IP: " CONFIG_MIDI_ETH_STATIC_IP);
         
         // Stop DHCP client first
-        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(eth_netif));
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(midi_eth_config.eth_netif));
         
         // Parse and set static IP configuration
         esp_netif_ip_info_t ip_info;
@@ -92,7 +105,7 @@ esp_err_t midi_eth_init(void)
         ip_info.netmask.addr = esp_ip4addr_aton(CONFIG_MIDI_ETH_STATIC_NETMASK);
         ip_info.gw.addr = esp_ip4addr_aton(CONFIG_MIDI_ETH_STATIC_GATEWAY);
         
-        ESP_ERROR_CHECK(esp_netif_set_ip_info(eth_netif, &ip_info));
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(midi_eth_config.eth_netif, &ip_info));
         
         ESP_LOGI(TAG, "Static IP configured successfully");
         ESP_LOGI(TAG, "  IP: " CONFIG_MIDI_ETH_STATIC_IP);

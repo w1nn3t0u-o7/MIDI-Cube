@@ -1,0 +1,27 @@
+menu "MIDI Cube Configuration"
+
+    config MIDI_ENABLE_USBD
+        bool "Enable USB MIDI Device"
+        default y
+        help
+            Enables USB MIDI device interface.
+
+    config MIDI_ENABLE_UART
+        bool "Enable UART (DIN) MIDI"
+        default y
+        help
+            Enables MIDI over DIN 5-pin UART.
+
+    config MIDI_ENABLE_WIFI
+        bool "Enable Network MIDI 2.0 over Wi-Fi"
+        default y
+        help
+            Enables Network MIDI 2.0 over Wi-Fi.
+
+    config MIDI_ENABLE_ETHERNET
+        bool "Enable Network MIDI 2.0 over Ethernet"
+        default y
+        help
+            Enables Network MIDI 2.0 over Ethernet.
+
+endmenu

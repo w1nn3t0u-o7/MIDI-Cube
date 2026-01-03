@@ -103,7 +103,8 @@ static void midi_router_task(void *arg)
                          MIDI1_MSG_GET_CHANNEL(&packet.data.midi1),
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
-                
+
+                #ifdef CONFIG_MIDI_ENABLE_USBD
                 // Option 2: Send to USB (MIDI 1.0 format)
                 if (router_state.enable_usb) {
                     ret = midi_usbd_send(packet.cable, &packet.data.midi1);
@@ -114,7 +115,11 @@ static void midi_router_task(void *arg)
                         ESP_LOGD(TAG, "UART→USB sent successfully");
                     }
                 }
+                #else
+                ESP_LOGW(TAG, "USB output disabled, skipping UART→USB routing");
+                #endif
                 
+                #if  defined(CONFIG_MIDI_ENABLE_WIFI) || defined(CONFIG_MIDI_ENABLE_ETHERNET)
                 // Option 3: Translate to MIDI 2.0 and send to network
                 if (router_state.enable_network) {
                     ret = midi_translate_1to2(&packet.data.midi1, &translated_ump);
@@ -131,6 +136,9 @@ static void midi_router_task(void *arg)
                                  esp_err_to_name(ret));
                     }
                 }
+                #else
+                ESP_LOGW(TAG, "Network output disabled, skipping UART→Network routing");
+                #endif
                 break;
             }
             
@@ -144,6 +152,7 @@ static void midi_router_task(void *arg)
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
+                #ifdef CONFIG_MIDI_ENABLE_UART
                 // Option 1: Send to UART
                 if (router_state.enable_uart) {
                     ret = midi_uart_send_message(&packet.data.midi1);
@@ -154,7 +163,11 @@ static void midi_router_task(void *arg)
                         ESP_LOGD(TAG, "USB→UART sent successfully");
                     }
                 }
+                #else
+                ESP_LOGW(TAG, "UART output disabled, skipping USB→UART routing");
+                #endif
                 
+                #if defined(CONFIG_MIDI_ENABLE_WIFI) || defined(CONFIG_MIDI_ENABLE_ETHERNET)
                 // Option 2: Translate to MIDI 2.0 and send to network
                 if (router_state.enable_network) {
                     ret = midi_translate_1to2(&packet.data.midi1, &translated_ump);
@@ -171,6 +184,9 @@ static void midi_router_task(void *arg)
                                  esp_err_to_name(ret));
                     }
                 }
+                #else
+                ESP_LOGW(TAG, "Network output disabled, skipping USB→Network routing");
+                #endif
                 break;
             }
             
@@ -186,6 +202,7 @@ static void midi_router_task(void *arg)
                 ret = midi_translate_2to1(&packet.data.ump, &translated_msg);
                 
                 if (ret == ESP_OK) {
+                    #ifdef CONFIG_MIDI_ENABLE_UART
                     // Option 1: Send to UART
                     if (router_state.enable_uart) {
                         ret = midi_uart_send_message(&translated_msg);
@@ -196,7 +213,11 @@ static void midi_router_task(void *arg)
                             ESP_LOGD(TAG, "Network→UART sent successfully");
                         }
                     }
+                    #else
+                    ESP_LOGW(TAG, "UART output disabled, skipping Network→UART routing");
+                    #endif
                     
+                    #ifdef CONFIG_MIDI_ENABLE_USBD
                     // Option 2: Send to USB
                     if (router_state.enable_usb) {
                         ret = midi_usbd_send(packet.cable, &translated_msg);
@@ -207,6 +228,9 @@ static void midi_router_task(void *arg)
                             ESP_LOGD(TAG, "Network→USB sent successfully");
                         }
                     }
+                    #else
+                    ESP_LOGW(TAG, "USB output disabled, skipping Network→USB routing");
+                    #endif
                 } else if (ret == ESP_ERR_NOT_SUPPORTED) {
                     ESP_LOGW(TAG, "Network message cannot be translated to MIDI 1.0");
                 } else {
