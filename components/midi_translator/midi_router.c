@@ -116,7 +116,7 @@ static void midi_router_task(void *arg)
                     }
                 }
                 #else
-                ESP_LOGW(TAG, "USB output disabled, skipping UART→USB routing");
+                ESP_LOGD(TAG, "USB output disabled, skipping UART→USB routing");
                 #endif
                 
                 #if CONFIG_MIDI_ENABLE_WIFI || CONFIG_MIDI_ENABLE_ETHERNET
