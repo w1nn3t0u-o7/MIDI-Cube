@@ -480,9 +480,11 @@ static void midi_net_proc_udp_packet(midi_net_ep_t *ep, uint8_t *data, size_t le
                 ESP_LOGE(TAG, "Invalid UMP payload size for its message type");
                 break;
             }
-
+            
+            #if CONFIG_MIDI_NET_BROADCAST_RX
             midi_net_broadcast_ump(ep, &ump);
-
+            #endif
+            
             if (ep->rx_callback != NULL) {
                 ep->rx_callback(session, &ump);
             }

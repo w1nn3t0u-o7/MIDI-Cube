@@ -59,28 +59,28 @@ void app_main(void) {
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "");
     
-    #ifdef CONFIG_MIDI_ENABLE_WIFI
+    #if CONFIG_MIDI_ENABLE_WIFI
     midi_wifi_register_callbacks(on_network_ready, on_network_lost);
     midi_wifi_init();
     #else
     ESP_LOGI(TAG, "WiFi MIDI disabled in configuration");
     #endif
 
-    #ifdef CONFIG_MIDI_ENABLE_ETHERNET
+    #if CONFIG_MIDI_ENABLE_ETHERNET
     midi_eth_register_callbacks(on_network_ready, on_network_lost);
     midi_eth_init();
     #else
     ESP_LOGI(TAG, "Ethernet MIDI disabled in configuration");
     #endif
 
-    #ifdef CONFIG_MIDI_ENABLE_USBD
+    #if CONFIG_MIDI_ENABLE_USBD
     midi_usbd_register_rx_callback(midi_usbd_rx_callback);
     midi_usbd_init();
     #else
     ESP_LOGI(TAG, "USB MIDI Device disabled in configuration");
     #endif
 
-    #ifdef CONFIG_MIDI_ENABLE_UART
+    #if CONFIG_MIDI_ENABLE_UART
     midi_uart_init();
     #else
     ESP_LOGI(TAG, "UART MIDI disabled in configuration");

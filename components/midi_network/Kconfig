@@ -12,4 +12,11 @@ menu "MIDI Network Configuration"
         help
             Maximum number of simultaneous MIDI Network sessions.
 
+    config MIDI_NET_BROADCAST_RX
+        bool "Broadcast received UMP packets to other sessions"
+        default n
+        help
+            If enabled, UMP packets received from one MIDI Network session
+            will be broadcast to all other active sessions.
+
 endmenu

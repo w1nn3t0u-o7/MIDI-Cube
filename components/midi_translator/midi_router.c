@@ -104,7 +104,7 @@ static void midi_router_task(void *arg)
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
 
-                #ifdef CONFIG_MIDI_ENABLE_USBD
+                #if CONFIG_MIDI_ENABLE_USBD
                 // Option 2: Send to USB (MIDI 1.0 format)
                 if (router_state.enable_usb) {
                     ret = midi_usbd_send(packet.cable, &packet.data.midi1);
@@ -119,7 +119,7 @@ static void midi_router_task(void *arg)
                 ESP_LOGW(TAG, "USB output disabled, skipping UART→USB routing");
                 #endif
                 
-                #if  defined(CONFIG_MIDI_ENABLE_WIFI) || defined(CONFIG_MIDI_ENABLE_ETHERNET)
+                #if CONFIG_MIDI_ENABLE_WIFI || CONFIG_MIDI_ENABLE_ETHERNET
                 // Option 3: Translate to MIDI 2.0 and send to network
                 if (router_state.enable_network) {
                     ret = midi_translate_1to2(&packet.data.midi1, &translated_ump);
@@ -152,7 +152,7 @@ static void midi_router_task(void *arg)
                          packet.data.midi1.data[0],
                          packet.data.midi1.data[1]);
                 
-                #ifdef CONFIG_MIDI_ENABLE_UART
+                #if CONFIG_MIDI_ENABLE_UART
                 // Option 1: Send to UART
                 if (router_state.enable_uart) {
                     ret = midi_uart_send_message(&packet.data.midi1);
@@ -167,7 +167,7 @@ static void midi_router_task(void *arg)
                 ESP_LOGW(TAG, "UART output disabled, skipping USB→UART routing");
                 #endif
                 
-                #if defined(CONFIG_MIDI_ENABLE_WIFI) || defined(CONFIG_MIDI_ENABLE_ETHERNET)
+                #if CONFIG_MIDI_ENABLE_WIFI || CONFIG_MIDI_ENABLE_ETHERNET
                 // Option 2: Translate to MIDI 2.0 and send to network
                 if (router_state.enable_network) {
                     ret = midi_translate_1to2(&packet.data.midi1, &translated_ump);
@@ -202,7 +202,7 @@ static void midi_router_task(void *arg)
                 ret = midi_translate_2to1(&packet.data.ump, &translated_msg);
                 
                 if (ret == ESP_OK) {
-                    #ifdef CONFIG_MIDI_ENABLE_UART
+                    #if CONFIG_MIDI_ENABLE_UART
                     // Option 1: Send to UART
                     if (router_state.enable_uart) {
                         ret = midi_uart_send_message(&translated_msg);
@@ -217,7 +217,7 @@ static void midi_router_task(void *arg)
                     ESP_LOGW(TAG, "UART output disabled, skipping Network→UART routing");
                     #endif
                     
-                    #ifdef CONFIG_MIDI_ENABLE_USBD
+                    #if CONFIG_MIDI_ENABLE_USBD
                     // Option 2: Send to USB
                     if (router_state.enable_usb) {
                         ret = midi_usbd_send(packet.cable, &translated_msg);
