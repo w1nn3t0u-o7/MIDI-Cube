@@ -11,14 +11,14 @@ menu "MIDI UART Configuration"
 
     config MIDI_UART_TX_PIN
         int "MIDI TX Pin (GPIO)"
-        default 17
+        default 1
         range 0 48
         help
             GPIO pin for MIDI OUT (TX). Default: GPIO17
 
     config MIDI_UART_RX_PIN
         int "MIDI RX Pin (GPIO)"
-        default 16
+        default 2
         range 0 48
         help
             GPIO pin for MIDI IN (RX). Default: GPIO16
