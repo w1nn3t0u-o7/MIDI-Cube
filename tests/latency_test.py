@@ -5,19 +5,13 @@ import statistics
 import struct
 import time
 
-# KONFIGURACJA
-TARGET_IP = "192.168.50.2"  # Wpisz IP swojego ESP32 (Ethernet lub WiFi)
+TARGET_IP = "192.168.50.2"
 TARGET_PORT = 5004
-COUNT = 1000  # Liczba próbek
+COUNT = 1000
 
-# Przygotowanie gniazda
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(1.0)
 
-
-# Struktura pakietu MIDI Network (AppleMIDI / RTP-MIDI)
-# Signature (4s), Command (H), Sequence (H), Timestamp (I), SSRC (I)
-# CMD 0x20 = IN_SYNC (PING)
 def build_ping_packet(seq, timestamp):
     # Format:
     # >      Big Endian
@@ -32,46 +26,43 @@ def build_ping_packet(seq, timestamp):
 
 rtt_values = []
 
-print(f"Rozpoczynam test opóźnień dla {TARGET_IP}...")
+print(f"Beginning latency test for {TARGET_IP}...")
 
 for seq in range(COUNT):
     try:
-        # 1. Pobierz czas startu (w nanosekundach dla precyzji)
+        # 1. Measure time before sending
         t_start = time.perf_counter_ns()
 
-        # 2. Wyślij pakiet (Timestamp w nagłówku jest tu dummy, liczymy czas hosta)
+        # 2. Send ping packet
         packet = build_ping_packet(seq, 0)
         sock.sendto(packet, (TARGET_IP, TARGET_PORT))
 
-        # 3. Odbierz odpowiedź
+        # 3. Receive response
         data, addr = sock.recvfrom(1024)
         t_end = time.perf_counter_ns()
 
-        # 4. Oblicz RTT w milisekundach
+        # 4. Calculate RTT in milliseconds
         rtt_ms = (t_end - t_start) / 1_000_000
         rtt_values.append(rtt_ms)
 
-        # Krótka pauza, żeby nie zalać sieci (opcjonalnie)
+        # 5. Short delay between packets
         time.sleep(0.005)
 
     except socket.timeout:
-        print(f"Timeout dla pakietu {seq}")
+        print(f"Timeout for a packet number {seq}")
     except Exception as e:
-        print(f"Błąd: {e}")
+        print(f"Error: {e}")
 
-# WYNIKI
 if rtt_values:
     min_val = min(rtt_values)
     avg_val = statistics.mean(rtt_values)
     max_val = max(rtt_values)
-    jitter = statistics.stdev(rtt_values)
 
     print("-" * 30)
-    print(f"Wyniki dla {COUNT} próbek:")
+    print(f"Results for {COUNT} samples:")
     print(f"Min: {min_val:.3f} ms")
     print(f"Max: {max_val:.3f} ms")
-    print(f"Średnia: {avg_val:.3f} ms")
-    print(f"Jitter (StDev): {jitter:.3f} ms")
+    print(f"Average: {avg_val:.3f} ms")
     print("-" * 30)
 else:
-    print("Brak danych pomiarowych.")
+    print("No measurement data available.")
