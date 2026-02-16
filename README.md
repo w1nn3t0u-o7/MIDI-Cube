@@ -84,7 +84,6 @@ idf.py monitor
 * Add Active Sensing support.
 * Robust System Exclusive (SysEx) support.
 
-* [ ] **MIDI UART:** Hardware optocoupler integration for noise elimination.
 * [ ] **Network:**
 * Add authentication to MIDI 2.0 sessions.
 * IPv6 support.
