@@ -549,7 +549,6 @@ static void midi_net_rx_task(void *pvParameters)
         FD_ZERO(&readset);
         FD_SET(ep->sock_fd, &readset);
         
-        // Set timeout to 1 second
         timeout.tv_sec = 0;
         timeout.tv_usec = 1000;
         
